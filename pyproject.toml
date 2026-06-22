@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "tac"
+version = "0.0.1"
+description = "Minimal differentiable XPBD physics engine / state estimator (gnoci)"
+requires-python = ">=3.10"
+dependencies = ["torch>=2.2"]
+
+[project.optional-dependencies]
+# numpy<2 is load-bearing: torch 2.2.2 (the last x86-macOS wheel) is built against the
+# numpy 1.x ABI and crashes under numpy 2.x. rerun-sdk's resolver *prefers* numpy 2.x but
+# *runs* fine pinned to 1.26.x, so keep the pin whenever rerun is installed.
+dev = ["pytest>=8", "numpy<2"]
+viz = ["rerun-sdk>=0.26,<0.27", "numpy<2"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
