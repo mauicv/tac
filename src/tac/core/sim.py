@@ -3,6 +3,7 @@ from typing import List
 from typing import Union
 from tac.constraints.length import Length
 import torch
+from tac.effects.inertial import Inertia, Gravity
 
 
 def inertial_step(
@@ -33,13 +34,17 @@ class Simulator:
     def __init__(
             self,
             constraints: List[Union[Length]],
+            effects: List[Union[Inertia, Gravity]],
             num_iter: int = 10,
-            dt: float = 0.01):
+            dt: float = 0.01
+        ):
+        self.effects = effects
         self.constraints = constraints
         self.num_iter = num_iter
         self.dt = dt
 
     def step(self, state: State):
-        state = inertial_step(state, self.dt)
+        for effect in self.effects:
+            state = effect.apply(state, self.dt)
         state = constraint_step(state, self.constraints, self.num_iter, self.dt)
         return state

@@ -8,17 +8,22 @@ import numpy as np
 
 
 class Renderer:
-    def __init__(self, state: State, visable_constraints: List[Union[FacetedWeld]], camera_distance: float = 5.0):
+    def __init__(
+            self,
+            state: State,
+            visable_constraints: List[Union[FacetedWeld]],
+            camera_distance: float = 5.0
+        ):
         self.plotter = pv.Plotter()
         points = state_2_points(state)
-        cells = []
 
+        cells = []
         for visable_constraint in visable_constraints:
-            weld_cells = weld_2_cells(visable_constraint)
-            cells.extend(weld_cells)
+            if isinstance(visable_constraint, FacetedWeld):
+                cells.extend(weld_2_cells(visable_constraint))
 
         self.mesh = pv.PolyData(points, cells)
-        self.plotter.add_mesh(self.mesh, show_edges=True, color='red')
+        self.plotter.add_mesh(self.mesh, show_edges=True, color='grey')
 
         center = self.mesh.points.mean(axis=0)
         self.plotter.camera.position = center + np.array([camera_distance, camera_distance, camera_distance])
