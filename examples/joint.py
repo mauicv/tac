@@ -90,14 +90,15 @@ class JointStructure:
 if __name__ == "__main__":
     joint = JointStructure()
     inertia = Inertia([0, 1, 2, 3, 4, 5])
+    gravity = Gravity([0, 1, 2, 3, 4, 5], [0.0, 0.0, -9.81])
     for _ in range(2):
-        joint.push_point(random.randint(0, 5), torch.tensor([0.0, 0.0, -0.01]))
+        joint.push_point(random.randint(0, 5), torch.tensor([0.0, 0.0, -0.5]))
 
-    simulator = Simulator(joint.get_constraint_set(), [inertia], num_iter=3, dt=0.01)
+    simulator = Simulator(joint.get_constraint_set(), [inertia, gravity], num_iter=3, dt=0.01)
     renderer = Renderer(joint.state, [joint.solid_1_weld, joint.solid_2_weld, joint.floor_weld])
 
     for t in range(200):
-        joint.joint.offset = math.sin(t*0.3)
+        joint.joint.offset = math.sin(t*0.1)
         for _ in range(5):
             joint.state = simulator.step(joint.state)
         renderer.update(joint.state)
