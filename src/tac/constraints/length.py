@@ -1,66 +1,37 @@
-"""Length (distance) constraint — the atom welds are built from.
-
-    C(x) = |x_a - x_b| - L
-    grad_a C = n = (x_a - x_b)/|x_a - x_b|      grad_b C = -n
-
-Both gradients are unit vectors, so |grad|^2 = 1 at each endpoint and the XPBD
-denominator is simply w_a + w_b + alpha/dt^2.
-"""
-
-from __future__ import annotations
-
+from tac.core.state import State
 import torch
 
-from ..core.state import State
-from .base import Constraint
 
-Tensor = torch.Tensor
+class Length:
+    def __init__(self, state: State, i: int, j: int, alpha: float):
+        self.state = state
+        self.i = i
+        self.j = j
+        self.alpha = alpha
+        dist = self.get_length()    # shape, (b, 1)
+        self.L = dist[[0], :]     # shape, (1, 1)
 
-_EPS = 1e-9
+    def get_length(self):
+        x = self.state.x_current[:,self.i] 
+        y = self.state.x_current[:,self.j]
+        d = x - y
+        dist = torch.linalg.vector_norm(d, dim=-1, keepdim=True)
+        return dist # shape, (b, 1)
 
-
-class Length(Constraint):
-    def __init__(self, a: int, b: int, rest_length, alpha: float = 0.0):
-        self.a = int(a)
-        self.b = int(b)
-        self.rest_length = rest_length  # float or tensor (learnable L)
-        self.alpha = float(alpha)
-
-    def project(self, state: State, lam: Tensor, dt: float) -> tuple[State, Tensor]:
-        x = state.x_current
-        d = x[:, self.a] - x[:, self.b]                       # (B, 3)
-        dist = torch.linalg.vector_norm(d, dim=-1, keepdim=True)  # (B, 1)
-        n = d / dist.clamp_min(_EPS)                          # (B, 3) unit direction
-
-        L = torch.as_tensor(self.rest_length, dtype=x.dtype, device=x.device)
-        C = dist.squeeze(-1) - L                              # (B,)
-
-        wa = self._w(state, self.a)                           # (B,)
-        wb = self._w(state, self.b)
+    def apply(self, lam, dt):
+        assert lam.shape == (self.state.batch_size, 1), "Lambda must be a tensor of shape (b, 1)"
+        x,y = self.state.x_current[:, self.i], self.state.x_current[:, self.j]
+        delta = x - y                                                                   # shape, (b, 3)
+        dist = torch.linalg.vector_norm(delta, dim=-1, keepdim=True)                    # shape, (b, 1)
+        n = delta / dist.clamp(min=1e-6)                                                # shape, (b, 3)
         a_tilde = self.alpha / (dt * dt)
-        denom = wa + wb + a_tilde
-        # Both endpoints pinned (and hard) -> denom 0; nothing can move, so no correction.
-        dlam = torch.where(
-            denom > _EPS, (-C - a_tilde * lam) / denom.clamp_min(_EPS), torch.zeros_like(C)
-        )
-        lam = lam + dlam
-
-        corr = dlam.unsqueeze(-1) * n                         # (B, 3) = dlam * grad dir
-        delta = torch.zeros_like(x)
-        delta[:, self.a] = wa.unsqueeze(-1) * corr            # x_a += w_a * dlam * n
-        delta[:, self.b] = -wb.unsqueeze(-1) * corr           # x_b += w_b * dlam * (-n)
-
-        new_state = State(
-            x_current=x + delta,
-            x_previous=state.x_previous,
-            inv_mass=state.inv_mass,
-        )
-        return new_state, lam
-
-    @staticmethod
-    def _w(state: State, idx: int) -> Tensor:
-        """Inverse mass of point `idx` as a (B,) tensor (handles (N,) or (B, N))."""
-        im = state.inv_mass
-        if im.ndim == 1:
-            return im[idx].expand(state.batch)
-        return im[:, idx]
+        C = dist - self.L                                                               # shape, (b, 1)
+        wa, wb = self.state.inv_mass[:, [self.i]], self.state.inv_mass[:, [self.j]]     # shape, (b, 1)
+        denum = wa + wb + a_tilde                                                       # shape, (b, 1)
+        dlam = - (C + a_tilde * lam) / denum                                            # shape, (b, 1)
+        lam = lam + dlam                                                                # shape, (b, 1)
+        x_update = wa * dlam * n
+        y_update = - wb * dlam * n
+        self.state.x_current[:, self.i] += x_update                                     # shape, (b, 3)
+        self.state.x_current[:, self.j] += y_update                                     # shape, (b, 3)
+        return lam
