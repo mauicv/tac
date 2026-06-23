@@ -21,5 +21,5 @@ class Gravity:
         self.points = points
 
     def apply(self, state: State, dt: float):
-        state.x_current[:, self.points] += torch.tensor(self.gravity) * dt
+        state.x_current[:, self.points] += torch.tensor(self.gravity) * dt * dt
         return state

@@ -44,7 +44,7 @@ class Box:
                 [2, 3, 7, 6],
                 [4, 5, 7, 6]
             ],
-            1.0
+            0.001
         )
 
         self.floor_weld = FacetedWeld(
@@ -71,12 +71,13 @@ if __name__ == "__main__":
         i = random.randint(0, 7)
         box.push_point(i, torch.tensor([0.0, 0.0, -0.05]))
     
-    gravity = Gravity([0, 1, 2, 3, 4, 5, 6, 7], [0.0, 0.0, -0.000981])
+    gravity = Gravity([0, 1, 2, 3, 4, 5, 6, 7], [0.0, 0.0, -9.81])
     inertia = Inertia([0, 1, 2, 3, 4, 5, 6, 7])
-    
-    simulator = Simulator(box.get_constraint_set(), [inertia, gravity], num_iter=2, dt=1)
+
+    simulator = Simulator(box.get_constraint_set(), [inertia, gravity], num_iter=2, dt=0.01)
     renderer = Renderer(box.state, [box.cube_weld, box.floor_weld])
-    for _ in range(200):
-        box.state = simulator.step(box.state)
+    for _ in range(100):
+        for _ in range(5):
+            box.state = simulator.step(box.state)
         renderer.update(box.state)
     renderer.close()

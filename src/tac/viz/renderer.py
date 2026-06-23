@@ -3,8 +3,22 @@ from tac.constraints.length import Length
 from tac.constraints.weld import FacetedWeld
 import pyvista as pv
 from tac.core.state import State
-from tac.viz.convert import state_2_points, weld_2_cells
 import numpy as np
+
+
+def weld_2_cells(weld: FacetedWeld):
+    faces = weld.faces
+    cells = []
+
+    for face in faces:
+        cells.append(len(face))
+        cells.extend(face)
+
+    return cells
+
+
+def state_2_points(state: State):
+    return state.x_current[0].to('cpu').numpy()
 
 
 class Renderer:
