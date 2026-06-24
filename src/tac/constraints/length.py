@@ -3,6 +3,8 @@ import torch
 
 
 class Length:
+    constraint_types = ["simulated"]
+
     def __init__(self, state: State, i: int, j: int, alpha: float):
         self.state = state
         self.i = i
@@ -18,7 +20,7 @@ class Length:
         dist = torch.linalg.vector_norm(d, dim=-1, keepdim=True)
         return dist # shape, (b, 1)
 
-    def apply(self, lam, dt):
+    def apply(self, lam, dt, **kwargs):
         assert lam.shape == (self.state.batch_size, 1), "Lambda must be a tensor of shape (b, 1)"
         x,y = self.state.x_current[:, self.i], self.state.x_current[:, self.j]
         delta = x - y                                                                   # shape, (b, 3)

@@ -23,10 +23,12 @@ Tac is a simple XPBD physics engine that does 2 things:
     - creates list of Length constraints for each point
 - [x] Implement FacetedWeld
 - [x] Implement Render
-- [x] Implement examples:
-    - [x] Box
-    - [ ] Joint
-    - [x] Line
 - [x] Implement Joint
     - class Joint:
     - takes axis_points, from_points, to_points
+- [ ] Implement IMU constraint
+- [x] Implement examples:
+    - [x] Box
+    - [x] Joint
+    - [x] Line
+    - [ ] IMU

@@ -80,7 +80,7 @@ class JointStructure:
 
         self.contacts = [FloorContact(self.state, i, -1, 1.0) for i in range(6)]
 
-    def get_constraint_set(self):
+    def get_simulated_constraint_set(self):
         return [*self.solid_1_weld.get_constraint_set(), *self.solid_2_weld.get_constraint_set(), self.joint, *self.contacts]
 
     def push_point(self, point: int, force: torch.Tensor):
@@ -94,7 +94,13 @@ if __name__ == "__main__":
     for _ in range(2):
         joint.push_point(random.randint(0, 5), torch.tensor([0.0, 0.0, -0.5]))
 
-    simulator = Simulator(joint.get_constraint_set(), [inertia, gravity], num_iter=3, dt=0.01)
+    simulator = Simulator(
+        simulated_constraints=joint.get_simulated_constraint_set(),
+        measured_constraints=[],
+        effects=[inertia, gravity],
+        num_iter=3,
+        dt=0.01
+    )
     renderer = Renderer(joint.state, [joint.solid_1_weld, joint.solid_2_weld, joint.floor_weld])
 
     for t in range(200):

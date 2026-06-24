@@ -57,7 +57,7 @@ class Box:
 
         self.contacts = [FloorContact(self.state, i, -1, 1.0) for i in range(8)]
 
-    def get_constraint_set(self):
+    def get_simulated_constraint_set(self):
         return [*self.cube_weld.get_constraint_set(), *self.contacts]
 
     def push_point(self, point: int, force: torch.Tensor):
@@ -74,7 +74,13 @@ if __name__ == "__main__":
     gravity = Gravity([0, 1, 2, 3, 4, 5, 6, 7], [0.0, 0.0, -9.81])
     inertia = Inertia([0, 1, 2, 3, 4, 5, 6, 7])
 
-    simulator = Simulator(box.get_constraint_set(), [inertia, gravity], num_iter=2, dt=0.01)
+    simulator = Simulator(
+        simulated_constraints=box.get_simulated_constraint_set(),
+        measured_constraints=[],
+        effects=[inertia, gravity],
+        num_iter=2,
+        dt=0.01
+    )
     renderer = Renderer(box.state, [box.cube_weld, box.floor_weld])
     for _ in range(100):
         for _ in range(5):

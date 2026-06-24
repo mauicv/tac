@@ -20,14 +20,20 @@ class TwoPoints:
         self.state.x_current[:, 0] = torch.tensor([-0.15, 0.0, 0.0])
         self.state.x_current[:, 1] = torch.tensor([1.15, 0.0, 0.0])
 
-    def get_constraint_set(self):
+    def get_simulated_constraint_set(self):
         return [self.length]
 
 
 if __name__ == "__main__":
     two_points = TwoPoints(alpha=0.001)
     inertia = Inertia([0, 1])
-    simulator = Simulator(two_points.get_constraint_set(), [inertia], num_iter=2, dt=0.01)
+    simulator = Simulator(
+        simulated_constraints=two_points.get_simulated_constraint_set(),
+        measured_constraints=[],
+        effects=[inertia],
+        num_iter=2,
+        dt=0.01
+    )
     lengths = []
     for _ in range(100):
         two_points.state = simulator.step(two_points.state)

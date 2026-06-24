@@ -1,20 +1,12 @@
 from typing import List
 from tac.core.state import State
 import torch
-
-_EPS = 1e-6
-
-
-def _normalize(v: torch.Tensor) -> torch.Tensor:
-    return v / torch.linalg.vector_norm(v, dim=-1, keepdim=True).clamp_min(_EPS)
-
-
-def _perp(v: torch.Tensor, n: torch.Tensor) -> torch.Tensor:
-    """Component of v perpendicular to unit axis n."""
-    return v - (v * n).sum(-1, keepdim=True) * n
+from tac.constraints.util import _normalize, _perp, _EPS
 
 
 class Joint:
+    constraint_types = ["measured", "simulated"] 
+
     def __init__(
             self,
             state: State,
@@ -46,7 +38,11 @@ class Joint:
         theta = torch.atan2(cross, dot)
         return theta, u, v, n  # theta (B, 1), u/v/n (B, 3)
 
-    def apply(self, lam, dt):
+    def apply(self, lam, dt, **kwargs):
+        offset = kwargs.get("offset", None)
+        if offset is not None:
+            self.offset = offset
+
         w = self.state.inv_mass     # (B, N) inverse masses
         x = self.state.x_current    # (B, N, 3)
         current_theta, u, v, n = self._compute_joint_state(self.state)
