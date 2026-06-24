@@ -37,7 +37,7 @@ class Renderer:
                 cells.extend(weld_2_cells(visable_constraint))
 
         self.mesh = pv.PolyData(points, cells)
-        self.plotter.add_mesh(self.mesh, show_edges=True, color='grey')
+        self.plotter.add_mesh(self.mesh, show_edges=True, color='grey', style='wireframe')
 
         center = self.mesh.points.mean(axis=0)
         self.plotter.camera.position = center + np.array([camera_distance, camera_distance, camera_distance])
@@ -45,6 +45,22 @@ class Renderer:
         self.plotter.camera.up = [0, 0, 1]
 
         self.plotter.show(interactive_update=True)
+
+        self.arrows = None
+
+    def add_arrows(self, points: List[float], vectors: List[float]):
+        points = np.array(points).reshape(-1, 3)
+        vectors = np.array(vectors).reshape(-1, 3)
+
+        arrow_mesh = pv.PolyData(points)
+        arrow_mesh['vectors'] = vectors
+        arrow_mesh.set_active_vectors('vectors')
+        glyphs = arrow_mesh.glyph(orient='vectors', scale=False, factor=1.0)
+
+        if self.arrows is None:
+            self.arrows = self.plotter.add_mesh(glyphs, color='red')
+        else:
+            self.arrows.mapper.SetInputData(glyphs)
 
     def update(self, state: State):
         new_points = state_2_points(state)

@@ -34,3 +34,19 @@ class FacetedWeld:
         for face_weld in self.face_welds:
             constraint_set.extend(face_weld.get_constraint_set())
         return constraint_set
+
+
+class LengthSet:
+    def __init__(self, state: State, A: List[int], B: List[int], alpha: float):
+        self.state = state
+        self.A = A
+        self.B = B
+        self.alpha = alpha
+        self.lengths = []
+
+        for i in range(len(A)):
+            for j in range(len(B)):
+                self.lengths.append(Length(state, A[i], B[j], alpha))
+
+    def get_constraint_set(self):
+        return self.lengths

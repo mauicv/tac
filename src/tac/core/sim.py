@@ -9,8 +9,6 @@ from tac.constraints.contact import FloorContact
 from tac.constraints.imu import PitchRollIMU
 
 
-
-
 class Simulator:
     def __init__(
             self,

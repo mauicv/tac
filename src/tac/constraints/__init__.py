@@ -1,8 +1,9 @@
 from .length import Length
-from .weld import SimpleWeld, FacetedWeld
+from .weld import SimpleWeld, FacetedWeld, LengthSet
 from .contact import FloorContact
 from .joint import Joint
 from .imu import PitchRollIMU
+
 
 __all__ = [
     "Length",
@@ -11,4 +12,5 @@ __all__ = [
     "FloorContact",
     "Joint",
     "PitchRollIMU",
+    "LengthSet"
 ]

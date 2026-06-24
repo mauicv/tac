@@ -9,3 +9,7 @@ def _normalize(v: torch.Tensor) -> torch.Tensor:
 def _perp(v: torch.Tensor, n: torch.Tensor) -> torch.Tensor:
     """Component of v perpendicular to unit axis n."""
     return v - (v * n).sum(-1, keepdim=True) * n
+
+
+def _cross(a: torch.Tensor, b: torch.Tensor) -> torch.Tensor:
+    return torch.linalg.cross(a, b)
