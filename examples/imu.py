@@ -80,7 +80,7 @@ class IMU:
 
 if __name__ == "__main__":
     imu = IMU()
-    inertia = Inertia([0, 1, 2, 3, 4])
+    inertia = Inertia([0, 1, 2, 3, 4, 5])
 
     simulator = Simulator(
         simulated_constraints=imu.get_simulated_constraint_set(),
@@ -92,8 +92,8 @@ if __name__ == "__main__":
 
     renderer = Renderer(imu.state, [imu.object_weld, imu.floor_weld])
 
-    imu.push_point(4, torch.tensor([0.01, 0.012, 0]))
-    imu.push_point(1, torch.tensor([-0.01, 0, 0]))
+    imu.push_point(random.randint(0, 5), torch.tensor([ 0.010, 0.012, 0.00]))
+    imu.push_point(random.randint(0, 5), torch.tensor([-0.010, 0.00, 0.00]))
 
     for _ in range(500):
         for _ in range(5):

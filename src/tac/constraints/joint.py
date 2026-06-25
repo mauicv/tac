@@ -68,7 +68,8 @@ class Joint:
         from_update = (w[:, self.from_points, None] * (g_from[:, None, :] / n_from) * d_lambda[:, None])
         to_update = (w[:, self.to_points, None] * (g_to[:, None, :] / n_to) * d_lambda[:, None])
 
-        sum_update = from_update + to_update
+
+        sum_update = from_update.mean(dim=1, keepdim=True) + to_update.mean(dim=1, keepdim=True)
 
         x[:, self.from_points] += from_update
         x[:, self.to_points]   += to_update
