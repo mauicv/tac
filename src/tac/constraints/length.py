@@ -37,3 +37,13 @@ class Length:
         self.state.x_current[:, self.i] += x_update                                     # shape, (b, 3)
         self.state.x_current[:, self.j] += y_update                                     # shape, (b, 3)
         return lam
+
+    def to_dict(self):
+        return {
+            "class": "Length",
+            "params": {
+                "i": self.i,
+                "j": self.j,
+                "alpha": self.alpha,
+            },
+        }

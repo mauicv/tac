@@ -25,6 +25,17 @@ class Joint:
         self.theta = theta
         self.offset = 0.0
 
+    def to_dict(self):
+        return {
+            "class": "Joint",
+            "params": {
+                "axis_points": self.axis_points,
+                "from_points": self.from_points,
+                "to_points": self.to_points,
+                "alpha": self.alpha,
+            },
+        }
+
     def _compute_joint_state(self, state: State) -> torch.Tensor:
         x = state.x_current
         p, q = x[:, self.axis_points[0]], x[:, self.axis_points[1]]

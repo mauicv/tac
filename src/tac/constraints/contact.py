@@ -10,6 +10,16 @@ class FloorContact:
         self.floor_z = floor_z
         self.alpha = alpha
 
+    def to_dict(self):
+        return {
+            "class": "FloorContact",
+            "params": {
+                "point": self.point,
+                "floor_z": self.floor_z,
+                "alpha": self.alpha,
+            },
+        }
+
     def apply(self, lam, dt, **kwargs):
         contact = kwargs.get("contact", None)
         if contact is not None:

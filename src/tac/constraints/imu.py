@@ -33,6 +33,15 @@ class PitchRollIMU:
         self.u = None
         self.v = None
 
+    def to_dict(self):
+        return {
+            "class": "PitchRollIMU",
+            "params": {
+                "imu_points": self.imu_points,
+                "alpha": self.alpha,
+            },
+        }
+
     def get_imu_state(self):
         v = self.state.x_current[:, self.imu_points[1]] - self.state.x_current[:, self.imu_points[0]] # (B, 2, 3)
         return _normalize(v) # (B, 1, 3)

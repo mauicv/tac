@@ -14,6 +14,15 @@ class SimpleWeld:
             for j in range(i+1, len(points)):
                 self.lengths.append(Length(state, points[i], points[j], alpha))
 
+    def to_dict(self):
+        return {
+            "class": "SimpleWeld",
+            "params": {
+                "points": self.points,
+                "alpha": self.alpha,
+            },
+        }
+
     def get_constraint_set(self):
         return self.lengths
 
@@ -28,6 +37,15 @@ class FacetedWeld:
         for face in faces:
             face_weld = SimpleWeld(state, face, alpha)
             self.face_welds.append(face_weld)
+
+    def to_dict(self):
+        return {
+            "class": "FacetedWeld",
+            "params": {
+                "faces": self.faces,
+                "alpha": self.alpha,
+            },
+        }
 
     def get_constraint_set(self):
         constraint_set = []
@@ -47,6 +65,16 @@ class LengthSet:
         for i in range(len(A)):
             for j in range(len(B)):
                 self.lengths.append(Length(state, A[i], B[j], alpha))
+
+    def to_dict(self):
+        return {
+            "class": "LengthSet",
+            "params": {
+                "A": self.A,
+                "B": self.B,
+                "alpha": self.alpha,
+            },
+        }
 
     def get_constraint_set(self):
         return self.lengths

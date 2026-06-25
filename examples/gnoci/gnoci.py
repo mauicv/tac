@@ -6,6 +6,7 @@ from tac.core.sim import Simulator
 from tac.viz.renderer import Renderer
 from tac.effects.inertial import Inertia, Gravity
 from tac.loading.stl import load_stl
+from tac.loading.tac import load_tac
 import random
 import torch
 import pyvista as pv
@@ -13,8 +14,11 @@ from tqdm import tqdm
 
 
 class Gnoci:
-    def __init__(self):
-        stl_parsed, state, welds, joints = load_stl("examples/gnoci/stl")
+    def __init__(self, load_from_tac: bool = True):
+        if load_from_tac:
+            state, welds, joints = load_tac("examples/gnoci/gnoci.json")
+        else:
+            stl_parsed, state, welds, joints = load_stl("examples/gnoci/stl")
         # Add floor
         n = len(state.x_current)
         min_z = state.x_current[:, :, 2].min()
@@ -27,6 +31,8 @@ class Gnoci:
             inv_mass=torch.tensor([0.0, 0.0, 0.0, 0.0])
         )
         self.state = state
+        self.welds = welds[0]
+        self.joints = joints
         self.floor_weld = FacetedWeld(
             self.state,
             [
@@ -34,12 +40,10 @@ class Gnoci:
             ],
             1.0
         )
-        self.welds = welds
-        self.joints = joints
         self.contacts = [FloorContact(self.state, i, min_z, 1.0) for i in range(n)]
-        self.renderer = Renderer(state, [self.floor_weld, welds])
+        self.renderer = Renderer(state, [self.floor_weld, welds[0]])
         self.simulator = Simulator(
-            simulated_constraints=[*welds.get_constraint_set(), *joints, *self.contacts],
+            simulated_constraints=[*self.welds.get_constraint_set(), *self.joints, *self.contacts],
             measured_constraints=[],
             effects=[
                 Gravity(list(range(n)), [0.0, 0.0, -9.81]),
