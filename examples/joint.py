@@ -10,7 +10,7 @@ import random
 import torch
 import math
 
-DT=0.01
+DT=0.005
 
 class JointStructure:
     def __init__(self):
@@ -63,13 +63,10 @@ class JointStructure:
             0.001, DT
         )
 
-        self.joint = Joint(
-            self.state,
-            [2, 3],   # axis = the shared hinge edge
-            [0, 1],   # from = solid 1's free edge
-            [4, 5],   # to   = solid 2's free edge
-            0.01, DT
-        )
+        self.joints = [
+            Joint(self.state, [2, 3], 0, 4, 0.01, DT),
+            Joint(self.state, [2, 3], 1, 5, 0.01, DT)
+        ]
 
         self.floor_weld = FacetedWeld(
             self.state,
@@ -82,7 +79,7 @@ class JointStructure:
         self.contacts = [FloorContact(self.state, i, -1, 1.0, DT) for i in range(6)]
 
     def get_simulated_constraint_set(self):
-        return [*self.solid_1_weld.get_constraint_set(), *self.solid_2_weld.get_constraint_set(), self.joint, *self.contacts]
+        return [*self.solid_1_weld.get_constraint_set(), *self.solid_2_weld.get_constraint_set(), *self.joints, *self.contacts]
 
     def push_point(self, point: int, force: torch.Tensor):
         self.state.x_current[:, point] += force
@@ -92,8 +89,8 @@ if __name__ == "__main__":
     joint = JointStructure()
     inertia = Inertia([0, 1, 2, 3, 4, 5])
     gravity = Gravity([0, 1, 2, 3, 4, 5], [0.0, 0.0, -9.81])
-    # for _ in range(2):
-    #     joint.push_point(random.randint(0, 5), torch.tensor([0.0, 0.0, -0.5]))
+    for _ in range(2):
+        joint.push_point(random.randint(0, 5), torch.tensor([0.0, 0.0, -0.05]))
 
     simulator = Simulator(
         simulated_constraints=joint.get_simulated_constraint_set(),
@@ -108,8 +105,9 @@ if __name__ == "__main__":
     renderer = Renderer(joint.state, [joint.solid_1_weld, joint.solid_2_weld, joint.floor_weld])
 
     for t in range(200):
-        joint.joint.offset = math.sin(t*0.1)
-        for _ in range(5):
+        joint.joints[0].offset = math.sin(t*0.1)
+        joint.joints[1].offset = math.sin(t*0.1)
+        for _ in range(10):
             joint.state = simulator.step(joint.state)
         renderer.update(joint.state)
     renderer.close()

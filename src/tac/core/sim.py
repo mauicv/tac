@@ -7,28 +7,8 @@ from tac.effects.inertial import Inertia, Gravity
 from tac.constraints.joint import Joint
 from tac.constraints.contact import FloorContact
 from tac.constraints.imu import PitchRollIMU
+from tac.perf import PerformanceMonitor
 
-
-import time
-from collections import defaultdict
-
-
-class PerformanceMonitor:
-    def __init__(self):
-        self.events = defaultdict(list)
-
-    def __call__(self, event_name):
-        self._current = event_name
-        return self
-
-    def __enter__(self):
-        self._start = time.perf_counter()
-        return self
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        elapsed = time.perf_counter() - self._start
-        self.events[self._current].append(elapsed)
-        return False
 
 
 
@@ -40,7 +20,8 @@ class Simulator:
             effects: List[Union[Inertia, Gravity]],
             num_iter: int = 10,
             dt: float = 0.01,
-            batch_size: int = 1
+            batch_size: int = 1,
+            verbose: bool = True
         ):
         self.effects = effects
         self.simulated_constraints = simulated_constraints
@@ -51,7 +32,8 @@ class Simulator:
         self.num_iter = num_iter
         self.dt = dt
 
-        self.perf_rec = PerformanceMonitor()
+        self.perf_rec = PerformanceMonitor(print_every=num_iter)
+        self.verbose = verbose
 
     def zero_lambdas(self):
         for lambda_val in self.lambdas:
@@ -70,6 +52,8 @@ class Simulator:
             for ind, (lambda_val, constraint) in enumerate(zip(self.lambdas, self.constraints)):
                 with self.perf_rec(f"constraint_apply_{constraint.__class__.__name__}"):
                     lambda_val = constraint.apply(lambda_val, self.dt, **measurements)
+        if self.verbose:
+            self.perf_rec.print_stats()
         return state
 
     def step(
