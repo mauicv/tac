@@ -91,13 +91,16 @@ if __name__ == "__main__":
     joint = JointStructure()
     inertia = Inertia([0, 1, 2, 3, 4, 5])
     gravity = Gravity([0, 1, 2, 3, 4, 5], [0.0, 0.0, -9.81])
-    for _ in range(2):
-        joint.push_point(random.randint(0, 5), torch.tensor([0.0, 0.0, -0.5]))
+    # for _ in range(2):
+    #     joint.push_point(random.randint(0, 5), torch.tensor([0.0, 0.0, -0.5]))
 
     simulator = Simulator(
         simulated_constraints=joint.get_simulated_constraint_set(),
         measured_constraints=[],
-        effects=[inertia, gravity],
+        effects=[
+            inertia,
+            # gravity
+        ],
         num_iter=3,
         dt=0.01
     )

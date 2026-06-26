@@ -1,4 +1,5 @@
 from tac.core.state import State
+from typing import List
 import torch
 
 
@@ -47,3 +48,38 @@ class Length:
                 "alpha": self.alpha,
             },
         }
+
+
+class VectorizedLength:
+    def __init__(self, state: State, i_idx: List[int], j_idx: List[int], alpha: float):
+        assert len(i_idx) == len(j_idx), "i_idx and j_idx must have the same length"
+        self.state = state
+        self.i_idx = i_idx
+        self.j_idx = j_idx
+        self.alpha = alpha
+        dist = self.get_length()    # shape, (b, m)
+        self.L = dist[[0], :]     # shape, (1, m)
+
+    def get_length(self):
+        x = self.state.x_current[:,self.i_idx] 
+        y = self.state.x_current[:,self.j_idx]
+        dist = torch.linalg.vector_norm(x - y, dim=-1, keepdim=True)
+        return dist # shape, (b, m, 1)
+
+    def apply(self, lam, dt, **kwargs):
+        assert lam.shape == (self.state.batch_size, len(self.i_idx), 1), "Lambda must be a tensor of shape (b, m, 1)"
+        x = self.state.x_current[:,self.i_idx]                                                      # shape, (b, m, 3)
+        y = self.state.x_current[:,self.j_idx]                                                      # shape, (b, m, 3)
+        dist = torch.linalg.vector_norm(x - y, dim=-1, keepdim=True)                                # shape, (b, m, 1)
+        n = (x - y) / dist.clamp(min=1e-6)
+        a_tilde = self.alpha / (dt * dt)                                                            # shape, (1)
+        C = dist - self.L                                                                           # shape, (b, m, 1)
+        wa, wb = self.state.inv_mass[:,self.i_idx, None], self.state.inv_mass[:,self.j_idx, None]   # shape, (b, m, 1)
+        denum = wa + wb + a_tilde                                                                   # shape, (b, m, 1)
+        dlam = - (C + a_tilde * lam) / denum                                                        # shape, (b, m, 1)
+        lam = lam + dlam                                                                            # shape, (b, m, 1)
+        x_update = wa * dlam * n                                                                    # shape, (b, m, 3)
+        y_update = - wb * dlam * n                                                                  # shape, (b, m, 3)
+        self.state.x_current[:, self.i_idx] += x_update                                             # shape, (b, m, 3)
+        self.state.x_current[:, self.j_idx] += y_update                                             # shape, (b, m, 3)
+        return lam                                                                                  # shape, (b, m, 1)

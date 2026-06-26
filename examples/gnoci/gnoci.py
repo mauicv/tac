@@ -20,6 +20,7 @@ class Gnoci:
         else:
             stl_parsed, state, welds, joints = load_stl("examples/gnoci/stl")
         # Add floor
+        print(len(welds[0].get_constraint_set()))
         n = len(state.x_current)
         min_z = state.x_current[:, :, 2].min()
         state.add(torch.tensor([
@@ -41,7 +42,7 @@ class Gnoci:
             1.0
         )
         self.contacts = [FloorContact(self.state, i, min_z, 1.0) for i in range(n)]
-        self.renderer = Renderer(state, [self.floor_weld, welds[0]])
+        # self.renderer = Renderer(state, [self.floor_weld, welds[0]])
         self.simulator = Simulator(
             simulated_constraints=[*self.welds.get_constraint_set(), *self.joints, *self.contacts],
             measured_constraints=[],
@@ -56,14 +57,22 @@ class Gnoci:
     def step(self):
         for _ in range(5):
             self.state = self.simulator.step(self.state)
-        self.renderer.update(self.state)
+        # self.renderer.update(self.state)
 
     def close(self):
-        self.renderer.close()
+        pass
+        # self.renderer.close()
 
 
 if __name__ == "__main__":
     gnoci = Gnoci()
-    for _ in tqdm(range(100)):
-        gnoci.step()
-    gnoci.close()
+
+    # for _ in tqdm(range(10)):
+    #     gnoci.step()
+    # gnoci.close()
+
+    # print(gnoci.simulator.perf_rec.events)
+
+    # import json
+    # with open("examples/gnoci/gnoci_perf.json", "w") as f:
+    #     json.dump(gnoci.simulator.perf_rec.events, f)
