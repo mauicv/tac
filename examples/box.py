@@ -1,5 +1,5 @@
 from tac.core.state import State
-from tac.constraints.length import Length
+from tac.constraints.length import Length, VectorizedLength
 from tac.constraints.contact import FloorContact
 from tac.constraints.weld import FacetedWeld
 from tac.core.sim import Simulator
@@ -8,6 +8,9 @@ from tac.effects.inertial import Inertia, Gravity
 import random
 import torch
 
+
+DT = 0.005
+alpha = 0.0001
 
 class Box:
     def __init__(self):
@@ -44,8 +47,8 @@ class Box:
                 [2, 3, 7, 6],
                 [4, 5, 7, 6]
             ],
-            0.001,
-            0.01
+            alpha,
+            DT
         )
 
         self.floor_weld = FacetedWeld(
@@ -53,14 +56,15 @@ class Box:
             [
                 [8, 9, 11, 10],
             ],
-            1.0,
-            0.01
+            alpha,
+            DT
         )
 
-        self.contacts = [FloorContact(self.state, i, -1, 1.0, 0.01) for i in range(8)]
+        self.contacts = [FloorContact(self.state, i, -1, alpha, DT) for i in range(8)]
+        self.vectorized_length = VectorizedLength.from_lengths(self.state, self.cube_weld.get_constraint_set(), alpha, DT)
 
     def get_simulated_constraint_set(self):
-        return [*self.cube_weld.get_constraint_set(), *self.contacts]
+        return [self.vectorized_length, *self.contacts]
 
     def push_point(self, point: int, force: torch.Tensor):
         self.state.x_current[:, point] += force
@@ -71,7 +75,7 @@ if __name__ == "__main__":
 
     for i in range(8):
         i = random.randint(0, 7)
-        box.push_point(i, torch.tensor([0.0, 0.0, -0.05]))
+        box.push_point(i, torch.tensor([0.0, 0.001, 0.002]))
     
     gravity = Gravity([0, 1, 2, 3, 4, 5, 6, 7], [0.0, 0.0, -9.81])
     inertia = Inertia([0, 1, 2, 3, 4, 5, 6, 7])
@@ -81,11 +85,11 @@ if __name__ == "__main__":
         measured_constraints=[],
         effects=[inertia, gravity],
         num_iter=2,
-        dt=0.01
+        dt=DT
     )
     renderer = Renderer(box.state, [box.cube_weld, box.floor_weld])
-    for _ in range(100):
-        for _ in range(5):
+    for _ in range(1000):
+        for _ in range(10):
             box.state = simulator.step(box.state)
         renderer.update(box.state)
     renderer.close()

@@ -39,33 +39,37 @@ class Simulator:
             measured_constraints: List[Union[PitchRollIMU, Joint, FloorContact]],
             effects: List[Union[Inertia, Gravity]],
             num_iter: int = 10,
-            dt: float = 0.01
+            dt: float = 0.01,
+            batch_size: int = 1
         ):
         self.effects = effects
         self.simulated_constraints = simulated_constraints
         self.measured_constraints = measured_constraints
+        self.constraints = [*simulated_constraints, *measured_constraints]
+        self.batch_size = batch_size
+        self.lambdas = [torch.zeros(batch_size, *constraint.shape) for constraint in self.constraints]
         self.num_iter = num_iter
         self.dt = dt
 
         self.perf_rec = PerformanceMonitor()
+
+    def zero_lambdas(self):
+        for lambda_val in self.lambdas:
+            lambda_val.zero_()
 
     def constraint_step(
             self,
             state: State,
             measurements: dict = None
         ):
+        self.zero_lambdas()
         if measurements is None:
             measurements = {}
-        batch_size = state.x_current.shape[0]
-        lam_simulated = torch.zeros(batch_size, len(self.simulated_constraints))
-        lam_measured = torch.zeros(batch_size, len(self.measured_constraints))
+
         for _ in range(self.num_iter):
-            for ind, constraint in enumerate(self.simulated_constraints):
-                with self.perf_rec(f"simulated_constraint_apply_{constraint.__class__.__name__}"):
-                    lam_simulated[:, [ind]] = constraint.apply(lam_simulated[:, [ind]], self.dt)
-            for ind, constraint in enumerate(self.measured_constraints):
-                with self.perf_rec(f"measured_constraint_apply_{constraint.__class__.__name__}"):
-                    lam_measured[:, [ind]] = constraint.apply(lam_measured[:, [ind]], self.dt, **measurements)
+            for ind, (lambda_val, constraint) in enumerate(zip(self.lambdas, self.constraints)):
+                with self.perf_rec(f"constraint_apply_{constraint.__class__.__name__}"):
+                    lambda_val = constraint.apply(lambda_val, self.dt, **measurements)
         return state
 
     def step(

@@ -21,6 +21,10 @@ class FloorContact(Constraint):
             },
         }
 
+    @property
+    def shape(self):
+        return (1, )
+
     def apply(self, lam, dt, **kwargs):
         contact = kwargs.get("contact", None)
         if contact is not None:

@@ -43,6 +43,10 @@ class PitchRollIMU(Constraint):
             },
         }
 
+    @property
+    def shape(self):
+        return (1, )
+
     def get_imu_state(self):
         v = self.state.x_current[:, self.imu_points[1]] - self.state.x_current[:, self.imu_points[0]] # (B, 2, 3)
         return _normalize(v) # (B, 1, 3)

@@ -38,6 +38,10 @@ class Joint(Constraint):
             },
         }
 
+    @property
+    def shape(self):
+        return (1, )
+
     def _compute_joint_state(self, state: State) -> torch.Tensor:
         x = state.x_current
         p, q = x[:, self.axis_points[0]], x[:, self.axis_points[1]]

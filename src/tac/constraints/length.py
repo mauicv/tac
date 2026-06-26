@@ -21,6 +21,10 @@ class Length(Constraint):
         dist = torch.linalg.vector_norm(d, dim=-1, keepdim=True)
         return dist # shape, (b, 1)
 
+    @property
+    def shape(self):
+        return (1, )
+
     def apply(self, lam, dt, **kwargs):
         assert lam.shape == (self.state.batch_size, 1), "Lambda must be a tensor of shape (b, 1)"
         x,y = self.state.x_current[:, self.i], self.state.x_current[:, self.j]
@@ -56,8 +60,19 @@ class VectorizedLength(Constraint):
         super().__init__(state, alpha, dt)
         self.i_idx = i_idx
         self.j_idx = j_idx
+        # long index tensors for index_add_ scatter (cached to avoid per-step rebuilds)
+        self.i_t = torch.as_tensor(i_idx, dtype=torch.long, device=state.x_current.device)
+        self.j_t = torch.as_tensor(j_idx, dtype=torch.long, device=state.x_current.device)
         dist = self.get_length()    # shape, (b, m)
         self.L = dist[[0], :]     # shape, (1, m)
+
+    @classmethod
+    def from_lengths(cls, state: State, lengths: List[Length], alpha: float, dt: float):
+        return cls(state, [length.i for length in lengths], [length.j for length in lengths], alpha, dt)
+
+    @property
+    def shape(self):
+        return (len(self.i_idx), 1)
 
     def get_length(self):
         x = self.state.x_current[:,self.i_idx] 
@@ -78,8 +93,10 @@ class VectorizedLength(Constraint):
         lam = lam + dlam                                                                            # shape, (b, m, 1)
         x_update = wa * dlam * n                                                                    # shape, (b, m, 3)
         y_update = - wb * dlam * n                                                                  # shape, (b, m, 3)
-        self.state.x_current[:, self.i_idx] += x_update                                             # shape, (b, m, 3)
-        self.state.x_current[:, self.j_idx] += y_update                                             # shape, (b, m, 3)
+        # index_add_ accumulates duplicate indices; plain `x[:, idx] += ...` does NOT
+        # (last-write-wins), which silently drops most updates when points are shared.
+        self.state.x_current.index_add_(1, self.i_t, x_update)                                      # shape, (b, m, 3)
+        self.state.x_current.index_add_(1, self.j_t, y_update)                                      # shape, (b, m, 3)
         return lam                                                                                  # shape, (b, m, 1)
 
     def to_dict(self):
