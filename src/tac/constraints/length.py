@@ -1,16 +1,16 @@
 from tac.core.state import State
 from typing import List
 import torch
+from tac.constraints.base import Constraint
 
 
-class Length:
+class Length(Constraint):
     constraint_types = ["simulated"]
 
-    def __init__(self, state: State, i: int, j: int, alpha: float):
-        self.state = state
+    def __init__(self, state: State, i: int, j: int, alpha: float, dt: float):
+        super().__init__(state, alpha, dt)
         self.i = i
         self.j = j
-        self.alpha = alpha
         dist = self.get_length()    # shape, (b, 1)
         self.L = dist[[0], :]     # shape, (1, 1)
 
@@ -27,11 +27,10 @@ class Length:
         delta = x - y                                                                   # shape, (b, 3)
         dist = torch.linalg.vector_norm(delta, dim=-1, keepdim=True)                    # shape, (b, 1)
         n = delta / dist.clamp(min=1e-6)                                                # shape, (b, 3)
-        a_tilde = self.alpha / (dt * dt)
         C = dist - self.L                                                               # shape, (b, 1)
         wa, wb = self.state.inv_mass[:, [self.i]], self.state.inv_mass[:, [self.j]]     # shape, (b, 1)
-        denum = wa + wb + a_tilde                                                       # shape, (b, 1)
-        dlam = - (C + a_tilde * lam) / denum                                            # shape, (b, 1)
+        denum = wa + wb + self.a_tilde                                                       # shape, (b, 1)
+        dlam = - (C + self.a_tilde * lam) / denum                                            # shape, (b, 1)
         lam = lam + dlam                                                                # shape, (b, 1)
         x_update = wa * dlam * n
         y_update = - wb * dlam * n
@@ -46,17 +45,17 @@ class Length:
                 "i": self.i,
                 "j": self.j,
                 "alpha": self.alpha,
+                "dt": self.dt,
             },
         }
 
 
-class VectorizedLength:
-    def __init__(self, state: State, i_idx: List[int], j_idx: List[int], alpha: float):
+class VectorizedLength(Constraint):
+    def __init__(self, state: State, i_idx: List[int], j_idx: List[int], alpha: float, dt: float):
         assert len(i_idx) == len(j_idx), "i_idx and j_idx must have the same length"
-        self.state = state
+        super().__init__(state, alpha, dt)
         self.i_idx = i_idx
         self.j_idx = j_idx
-        self.alpha = alpha
         dist = self.get_length()    # shape, (b, m)
         self.L = dist[[0], :]     # shape, (1, m)
 
@@ -72,14 +71,24 @@ class VectorizedLength:
         y = self.state.x_current[:,self.j_idx]                                                      # shape, (b, m, 3)
         dist = torch.linalg.vector_norm(x - y, dim=-1, keepdim=True)                                # shape, (b, m, 1)
         n = (x - y) / dist.clamp(min=1e-6)
-        a_tilde = self.alpha / (dt * dt)                                                            # shape, (1)
         C = dist - self.L                                                                           # shape, (b, m, 1)
         wa, wb = self.state.inv_mass[:,self.i_idx, None], self.state.inv_mass[:,self.j_idx, None]   # shape, (b, m, 1)
-        denum = wa + wb + a_tilde                                                                   # shape, (b, m, 1)
-        dlam = - (C + a_tilde * lam) / denum                                                        # shape, (b, m, 1)
+        denum = wa + wb + self.a_tilde                                                                   # shape, (b, m, 1)
+        dlam = - (C + self.a_tilde * lam) / denum                                                        # shape, (b, m, 1)
         lam = lam + dlam                                                                            # shape, (b, m, 1)
         x_update = wa * dlam * n                                                                    # shape, (b, m, 3)
         y_update = - wb * dlam * n                                                                  # shape, (b, m, 3)
         self.state.x_current[:, self.i_idx] += x_update                                             # shape, (b, m, 3)
         self.state.x_current[:, self.j_idx] += y_update                                             # shape, (b, m, 3)
         return lam                                                                                  # shape, (b, m, 1)
+
+    def to_dict(self):
+        return {
+            "class": "VectorizedLength",
+            "params": {
+                "i_idx": self.i_idx,
+                "j_idx": self.j_idx,
+                "alpha": self.alpha,
+                "dt": self.dt,
+            },
+        }

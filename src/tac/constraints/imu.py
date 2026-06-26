@@ -1,6 +1,7 @@
 from tac.constraints.util import _normalize, _perp, _cross, _EPS
 from tac.core.state import State
 from typing import List
+from tac.constraints.base import Constraint
 
 
 import torch
@@ -14,7 +15,7 @@ def pitch_roll_2_vect(pitch, roll):
     return g
 
 
-class PitchRollIMU:
+class PitchRollIMU(Constraint):
     constraint_types = ["measured"]
 
     def __init__(
@@ -22,11 +23,11 @@ class PitchRollIMU:
             state: State,
             imu_points: List[int],
             alpha: float,
+            dt: float
         ):
         assert len(imu_points) == 2, "There must be exactly two IMU points"
+        super().__init__(state, alpha, dt)
         self.imu_points = imu_points
-        self.alpha = alpha
-        self.state = state
 
         # for logging:
         self.f = None
@@ -74,8 +75,7 @@ class PitchRollIMU:
             dC2 = (dC * dC).sum(-1, keepdim=True)                                                   # |dC|² (B, 1)
             w_sum = (w_head + w_tail) * dC2                                                         # (B, 1)
 
-            alpha_tilde = self.alpha / (dt * dt)
-            d_lambda = (-C - alpha_tilde * lam) / (w_sum + alpha_tilde).clamp_min(_EPS)             # (B, 1)
+            d_lambda = (-C - self.a_tilde * lam) / (w_sum + self.a_tilde).clamp_min(_EPS)             # (B, 1)
             # Apply as an equal-and-opposite couple on the two IMU points: ∂θ/∂head = +dC,
             # ∂θ/∂tail = -dC. This rotates the body axis; weld rigidity carries the rest.
             self.state.x_current[:, head] +=  w_head * dC * d_lambda                                # (B, 3)

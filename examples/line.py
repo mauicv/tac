@@ -6,6 +6,8 @@ import torch
 
 from matplotlib import pyplot as plt
 
+DT=0.01
+
 class TwoPoints:
     def __init__(self, alpha: float = 1.0):
         self.state = State(
@@ -16,7 +18,7 @@ class TwoPoints:
             inv_mass=torch.tensor([1.0, 1.0]),
             batch_size=1
         )
-        self.length = Length(self.state, 0, 1, alpha)
+        self.length = Length(self.state, 0, 1, alpha, DT)
         self.state.x_current[:, 0] = torch.tensor([-0.15, 0.0, 0.0])
         self.state.x_current[:, 1] = torch.tensor([1.15, 0.0, 0.0])
 
@@ -32,7 +34,7 @@ if __name__ == "__main__":
         measured_constraints=[],
         effects=[inertia],
         num_iter=2,
-        dt=0.01
+        dt=DT
     )
     lengths = []
     for _ in range(100):

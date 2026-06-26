@@ -11,6 +11,8 @@ import random
 import torch
 
 
+DT = 0.01
+
 class IMU:
     def __init__(self):
         self.state = State(
@@ -46,11 +48,12 @@ class IMU:
                 [3, 4, 2],
                 [2, 4, 0],
             ],
-            0.0
+            0.0,
+            DT
         )
 
         self.interior_point_constraint = LengthSet(
-            self.state, [5], [0, 1, 2, 3, 4], 0.0
+            self.state, [5], [0, 1, 2, 3, 4], 0.0, DT
         )
 
         self.floor_weld = FacetedWeld(
@@ -58,11 +61,11 @@ class IMU:
             [
                 [6, 7, 9, 8],
             ],
-            1.0
+            1.0, DT
         )
 
-        self.contacts = [FloorContact(self.state, i, -1, 1.0) for i in range(5)]
-        self.imu = PitchRollIMU(self.state, [4, 5], 0.001)
+        self.contacts = [FloorContact(self.state, i, -1, 1.0, DT) for i in range(5)]
+        self.imu = PitchRollIMU(self.state, [4, 5], 0.001, DT)
 
     def get_simulated_constraint_set(self):
         return [

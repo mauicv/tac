@@ -44,7 +44,8 @@ class Box:
                 [2, 3, 7, 6],
                 [4, 5, 7, 6]
             ],
-            0.001
+            0.001,
+            0.01
         )
 
         self.floor_weld = FacetedWeld(
@@ -52,10 +53,11 @@ class Box:
             [
                 [8, 9, 11, 10],
             ],
-            1.0
+            1.0,
+            0.01
         )
 
-        self.contacts = [FloorContact(self.state, i, -1, 1.0) for i in range(8)]
+        self.contacts = [FloorContact(self.state, i, -1, 1.0, 0.01) for i in range(8)]
 
     def get_simulated_constraint_set(self):
         return [*self.cube_weld.get_constraint_set(), *self.contacts]

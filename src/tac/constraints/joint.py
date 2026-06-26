@@ -2,9 +2,10 @@ from typing import List
 from tac.core.state import State
 import torch
 from tac.constraints.util import _normalize, _perp, _EPS
+from tac.constraints.base import Constraint
 
 
-class Joint:
+class Joint(Constraint):
     constraint_types = ["measured", "simulated"] 
 
     def __init__(
@@ -13,14 +14,14 @@ class Joint:
             axis_points: List[int],
             from_points: List[int],
             to_points: List[int],
-            alpha: float
+            alpha: float,
+            dt: float,
         ):
         assert len(axis_points) == 2, "Axis points must be a pair"
-        self.state = state
+        super().__init__(state, alpha, dt)
         self.axis_points = axis_points
         self.from_points = from_points
         self.to_points = to_points
-        self.alpha = alpha
         theta, *_ = self._compute_joint_state(state)
         self.theta = theta
         self.offset = 0.0
@@ -33,6 +34,7 @@ class Joint:
                 "from_points": self.from_points,
                 "to_points": self.to_points,
                 "alpha": self.alpha,
+                "dt": self.dt,
             },
         }
 
@@ -73,8 +75,7 @@ class Joint:
         w_sum = (w[:, self.from_points].sum(-1, keepdim=True) * gf2 / n_from**2
                 + w[:, self.to_points].sum(-1, keepdim=True) * gt2 / n_to**2)
 
-        alpha_tilde = self.alpha / (dt * dt)
-        d_lambda = (-C - alpha_tilde * lam) / (w_sum + alpha_tilde).clamp_min(_EPS)  # (B, 1)
+        d_lambda = (-C - self.a_tilde * lam) / (w_sum + self.a_tilde).clamp_min(_EPS)  # (B, 1)
 
         from_update = (w[:, self.from_points, None] * (g_from[:, None, :] / n_from) * d_lambda[:, None])
         to_update = (w[:, self.to_points, None] * (g_to[:, None, :] / n_to) * d_lambda[:, None])

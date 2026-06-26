@@ -15,6 +15,6 @@ def test_weld_2_mesh():
         inv_mass=torch.tensor([1.0, 1.0, 1.0, 1.0]),
         batch_size=1
     )
-    weld = FacetedWeld(state, [[0, 1, 2, 3]], 1.0)
+    weld = FacetedWeld(state, [[0, 1, 2, 3]], 1.0, dt=0.01)
     cells = weld_2_cells(weld)
     assert cells == [4, 0, 1, 2, 3]

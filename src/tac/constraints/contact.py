@@ -1,14 +1,14 @@
 from tac.core.state import State
+from tac.constraints.base import Constraint
 
 
-class FloorContact:
+class FloorContact(Constraint):
     constraint_types = ["measured", "simulated"] 
 
-    def __init__(self, state: State, point: int, floor_z: float, alpha: float):
-        self.state = state
+    def __init__(self, state: State, point: int, floor_z: float, alpha: float, dt: float):
+        super().__init__(state, alpha, dt)
         self.point = point
         self.floor_z = floor_z
-        self.alpha = alpha
 
     def to_dict(self):
         return {
@@ -17,6 +17,7 @@ class FloorContact:
                 "point": self.point,
                 "floor_z": self.floor_z,
                 "alpha": self.alpha,
+                "dt": self.dt,
             },
         }
 

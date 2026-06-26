@@ -14,10 +14,10 @@ def test_vectorized_length_parity():
     state_2 = State(torch.clone(points), batch_size=b)
     pairs = torch.randint(0, N, (N_pairs, 2))
 
-    vectorized_length = VectorizedLength(state_1, pairs[:, 0], pairs[:, 1], 1.0)
+    vectorized_length = VectorizedLength(state_1, pairs[:, 0], pairs[:, 1], 1.0, 0.1)
     lengths = []
     for i in range(N_pairs):
-        lengths.append(Length(state_2, pairs[i, 0], pairs[i, 1], 1.0))
+        lengths.append(Length(state_2, pairs[i, 0], pairs[i, 1], 1.0, 0.1))
 
     s = time.perf_counter()
     for _ in range(10):

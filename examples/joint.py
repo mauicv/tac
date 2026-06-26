@@ -10,6 +10,7 @@ import random
 import torch
 import math
 
+DT=0.01
 
 class JointStructure:
     def __init__(self):
@@ -48,7 +49,7 @@ class JointStructure:
                 [0, 2, 3],
                 [1, 2, 3],
             ],
-            0.001
+            0.001, DT
         )
 
         self.solid_2_weld = FacetedWeld(
@@ -59,7 +60,7 @@ class JointStructure:
                 [2, 4, 5],
                 [3, 4, 5],
             ],
-            0.001
+            0.001, DT
         )
 
         self.joint = Joint(
@@ -67,7 +68,7 @@ class JointStructure:
             [2, 3],   # axis = the shared hinge edge
             [0, 1],   # from = solid 1's free edge
             [4, 5],   # to   = solid 2's free edge
-            0.01
+            0.01, DT
         )
 
         self.floor_weld = FacetedWeld(
@@ -75,10 +76,10 @@ class JointStructure:
             [
                 torch.tensor([0, 1, 3, 2]) + 6,
             ],
-            1.0
+            1.0, DT
         )
 
-        self.contacts = [FloorContact(self.state, i, -1, 1.0) for i in range(6)]
+        self.contacts = [FloorContact(self.state, i, -1, 1.0, DT) for i in range(6)]
 
     def get_simulated_constraint_set(self):
         return [*self.solid_1_weld.get_constraint_set(), *self.solid_2_weld.get_constraint_set(), self.joint, *self.contacts]
@@ -102,7 +103,7 @@ if __name__ == "__main__":
             # gravity
         ],
         num_iter=3,
-        dt=0.01
+        dt=DT
     )
     renderer = Renderer(joint.state, [joint.solid_1_weld, joint.solid_2_weld, joint.floor_weld])
 

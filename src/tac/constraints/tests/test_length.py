@@ -10,14 +10,14 @@ def test_get_length(batch_size):
     assert state.x_current.shape == (batch_size, 2, 3)
     assert state.x_previous.shape == (batch_size, 2, 3)
     assert state.inv_mass.shape == (batch_size, 2)
-    length = Length(state, 0, 1, 1.0)
+    length = Length(state, 0, 1, 1.0, 0.1)
     assert length.L.shape == (1, 1)
     assert length.L[0, 0] == 1.0
 
 
 def test_apply_length():
     state = State(torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]), batch_size=2)
-    length = Length(state, 0, 1, 1.0)
+    length = Length(state, 0, 1, 1.0, 0.1)
     state.x_current[0, 0] = torch.tensor([0.0, 0.5, 0.0])
     lam = torch.zeros(2, 1)
     nlam = length.apply(lam, 0.01)
@@ -26,7 +26,7 @@ def test_apply_length():
 
 def test_apply_length_iterated():
     state = State(torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0]]), batch_size=2)
-    length = Length(state, 0, 1, 1.0)
+    length = Length(state, 0, 1, 1.0, 0.1)
     state.x_current[0, 0] = torch.tensor([0.0, 0.5, 0.0])
     state.x_current[1, 0] = torch.tensor([0.05, 0.0, 1.0])
     for _ in range(200):
@@ -40,7 +40,7 @@ def test_apply_length_iterated():
 
 def test_vectorized_length():
     state = State(torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]), batch_size=2)
-    vectorized_length = VectorizedLength(state, [0, 2], [1, 3], 1.0)
+    vectorized_length = VectorizedLength(state, [0, 2], [1, 3], 1.0, 0.1)
     assert vectorized_length.L.shape == (1, 2, 1)
     assert torch.allclose(vectorized_length.L, torch.tensor([[1.0], [1.0]]), atol=1e-2)
 
@@ -51,7 +51,7 @@ def test_vectorized_length():
 
 def test_vectorized_length_apply():
     state = State(torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]), batch_size=2)
-    vectorized_length = VectorizedLength(state, [0, 2], [1, 3], 1.0)
+    vectorized_length = VectorizedLength(state, [0, 2], [1, 3], 1.0, 0.1)
     lam = torch.zeros(2, 2, 1)
     nlam = vectorized_length.apply(lam, 0.01)
     assert nlam.shape == (2, 2, 1)
@@ -61,9 +61,9 @@ def test_vectorized_length_parity():
     b = 1
     state_1 = State(torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]), batch_size=b)
     state_2 = State(torch.tensor([[0.0, 0.0, 0.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [1.0, 1.0, 0.0]]), batch_size=b)
-    vectorized_length = VectorizedLength(state_1, [0, 2], [1, 3], 1.0)
-    length_1 = Length(state_2, 0, 1, 1.0)
-    length_2 = Length(state_2, 2, 3, 1.0)
+    vectorized_length = VectorizedLength(state_1, [0, 2], [1, 3], 1.0, 0.1)
+    length_1 = Length(state_2, 0, 1, 1.0, 0.1)
+    length_2 = Length(state_2, 2, 3, 1.0, 0.1)
 
 
     state_1.x_current[0, 0] = torch.tensor([0.0, 0.5, 0.0])
