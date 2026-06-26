@@ -34,5 +34,6 @@ class FloorContact(Constraint):
         z = x[:, 2]
         if z < self.floor_z:
             z = self.floor_z
-        self.state.x_current[:, self.point, 2] = z
+            self.state.x_previous[:, self.point, 0:2] = self.state.x_current[:, self.point, 0:2]
+            self.state.x_current[:, self.point, 2] = z
         return lam

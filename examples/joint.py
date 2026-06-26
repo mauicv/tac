@@ -1,8 +1,8 @@
 from tac.core.state import State
-from tac.constraints.length import Length
+from tac.constraints.length import Length, VectorizedLength
 from tac.constraints.contact import FloorContact
 from tac.constraints.weld import FacetedWeld
-from tac.constraints.joint import Joint
+from tac.constraints.joint import Joint, VectorizedJoint
 from tac.core.sim import Simulator
 from tac.viz.renderer import Renderer
 from tac.effects.inertial import Inertia, Gravity
@@ -63,10 +63,17 @@ class JointStructure:
             0.001, DT
         )
 
-        self.joints = [
+        joints = [
             Joint(self.state, [2, 3], 0, 4, 0.01, DT),
             Joint(self.state, [2, 3], 1, 5, 0.01, DT)
         ]
+        self.vectorized_joints = VectorizedJoint.from_joints(self.state, joints, 0.01, DT)
+        self.vectorized_lengths = VectorizedLength.from_lengths(
+            self.state,
+            [*self.solid_1_weld.get_constraint_set(), *self.solid_2_weld.get_constraint_set()],
+            0.01,
+            DT
+        )
 
         self.floor_weld = FacetedWeld(
             self.state,
@@ -79,7 +86,7 @@ class JointStructure:
         self.contacts = [FloorContact(self.state, i, -1, 1.0, DT) for i in range(6)]
 
     def get_simulated_constraint_set(self):
-        return [*self.solid_1_weld.get_constraint_set(), *self.solid_2_weld.get_constraint_set(), *self.joints, *self.contacts]
+        return [self.vectorized_lengths, self.vectorized_joints, *self.contacts]
 
     def push_point(self, point: int, force: torch.Tensor):
         self.state.x_current[:, point] += force
@@ -90,23 +97,22 @@ if __name__ == "__main__":
     inertia = Inertia([0, 1, 2, 3, 4, 5])
     gravity = Gravity([0, 1, 2, 3, 4, 5], [0.0, 0.0, -9.81])
     for _ in range(2):
-        joint.push_point(random.randint(0, 5), torch.tensor([0.0, 0.0, -0.05]))
+        joint.push_point(random.randint(0, 5), torch.tensor([0.0, 0.0, -0.005]))
 
     simulator = Simulator(
         simulated_constraints=joint.get_simulated_constraint_set(),
         measured_constraints=[],
         effects=[
             inertia,
-            # gravity
+            gravity
         ],
         num_iter=3,
         dt=DT
     )
     renderer = Renderer(joint.state, [joint.solid_1_weld, joint.solid_2_weld, joint.floor_weld])
 
-    for t in range(200):
-        joint.joints[0].offset = math.sin(t*0.1)
-        joint.joints[1].offset = math.sin(t*0.1)
+    for t in range(1000):
+        joint.vectorized_joints.offset = math.sin(t*0.1)
         for _ in range(10):
             joint.state = simulator.step(joint.state)
         renderer.update(joint.state)
