@@ -49,7 +49,10 @@ class PerformanceMonitor:
         if self._lines_printed:
             sys.stdout.write(f"\033[{self._lines_printed}F\033[J")
 
-        rows = sorted(self.average_events.items(), key=lambda kv: kv[1], reverse=True)
+        # sort by event name (stable) rather than by timing — sorting by the EMA
+        # value reorders rows every call as timings drift, which makes the
+        # in-place redraw flicker.
+        rows = sorted(self.average_events.items(), key=lambda kv: kv[0])
         prefix = self._common_prefix([name for name, _ in rows])
         labels = [name[len(prefix):] for name, _ in rows]
 

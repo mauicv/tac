@@ -68,6 +68,7 @@ class IMU:
         self.imu = PitchRollIMU(self.state, [4, 5], ALPHA)
 
         self.simulator = Simulator(
+            state=self.state,
             constraints=[
                 *object_weld.get_constraint_set(),
                 *interior_point_constraint.get_constraint_set(),
@@ -76,7 +77,8 @@ class IMU:
             ],
             effects=[Inertia([0, 1, 2, 3, 4, 5])],
             num_iter=2,
-            dt=0.001
+            dt=0.001,
+            constraint_optimisation='Jacobi'
         )
 
         self.renderer = Renderer(self.state, [object_weld, floor_weld])

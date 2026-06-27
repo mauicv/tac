@@ -25,11 +25,12 @@ class TwoPoints:
 
         self.state = state
         self.simulator = Simulator(
+            state=state,
             constraints=[length],
             effects=[inertia],
             num_iter=2,
             dt=DT,
-            optimize_constraints=False
+            constraint_optimisation='None'
         )
 
     def step(self):

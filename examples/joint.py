@@ -69,12 +69,6 @@ class JointStructure:
             Joint(self.state, [2, 3], 0, 4, ALPHA),
             Joint(self.state, [2, 3], 1, 5, ALPHA)
         ]
-        self.vectorized_joints = VectorizedJoint.from_joints(self.state, joints, ALPHA)
-        vectorized_lengths = VectorizedLength.from_lengths(
-            self.state,
-            [*solid_1_weld.get_constraint_set(), *solid_2_weld.get_constraint_set()],
-            ALPHA,
-        )
 
         floor_weld = FacetedWeld(
             self.state,
@@ -86,9 +80,11 @@ class JointStructure:
 
         contacts = [FloorContact(self.state, i, -1, 1.0) for i in range(6)]
         simulator = Simulator(
+            state=self.state,
             constraints=[
-                vectorized_lengths,
-                self.vectorized_joints,
+                *solid_1_weld.get_constraint_set(),
+                *solid_2_weld.get_constraint_set(),
+                *joints,
                 *contacts
             ],
             effects=[
@@ -96,7 +92,8 @@ class JointStructure:
                 Gravity([0, 1, 2, 3, 4, 5], [0.0, 0.0, -9.81])
             ],
             num_iter=3,
-            dt=DT
+            dt=DT,
+            constraint_optimisation='Jacobi'
         )
         self.simulator = simulator
         self.renderer = Renderer(self.state, [solid_1_weld, solid_2_weld, floor_weld])
@@ -104,8 +101,7 @@ class JointStructure:
     def push_point(self, point: int, force: torch.Tensor):
         self.state.x_current[:, point] += force
 
-    def step(self, action: float):
-        self.vectorized_joints.offset = action
+    def step(self):
         for _ in range(10):
             self.state = self.simulator.step(self.state)
         self.renderer.update(self.state)
@@ -116,8 +112,8 @@ class JointStructure:
 if __name__ == "__main__":
     joint = JointStructure()
     for _ in range(2):
-        joint.push_point(random.randint(0, 5), torch.tensor([0.0, 0.0, -0.005]))
+        joint.push_point(random.randint(0, 5), torch.tensor([0.0, 0.01, -0.05]))
 
     for t in range(1000):
-        joint.step(math.sin(t * 0.01))
+        joint.step()
     joint.close()

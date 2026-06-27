@@ -59,16 +59,18 @@ class Box:
         )
 
         self.simulator = Simulator(
+            state=self.state,
             constraints=[
                 *[FloorContact(self.state, i, -1, alpha) for i in range(8)],
-                VectorizedLength.from_lengths(self.state, cube_weld.get_constraint_set(), alpha),
+                *cube_weld.get_constraint_set(),
             ],
             effects=[
                 Inertia([0, 1, 2, 3, 4, 5, 6, 7]),
                 Gravity([0, 1, 2, 3, 4, 5, 6, 7], [0.0, 0.0, -9.81])
             ],
             num_iter=2,
-            dt=DT
+            dt=DT,
+            constraint_optimisation='Jacobi'
         )
 
         self.renderer = Renderer(self.state, [cube_weld, floor_weld])

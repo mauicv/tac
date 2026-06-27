@@ -38,3 +38,8 @@ Tac is a simple XPBD physics engine that does 2 things:
 - [x] Implement vectorized length and joint constraints
 - [ ] Implement vectorized contact constraint
 - [ ] implement colour sorting for vectorization
+
+
+# BUGLIST/MINOR:
+
+- [ ] Set dt on all constraints when init simulator.
