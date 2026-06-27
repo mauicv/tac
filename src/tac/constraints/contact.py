@@ -5,8 +5,8 @@ from tac.constraints.base import Constraint
 class FloorContact(Constraint):
     constraint_types = ["measured", "simulated"] 
 
-    def __init__(self, state: State, point: int, floor_z: float, alpha: float, dt: float):
-        super().__init__(state, alpha, dt)
+    def __init__(self, state: State, point: int, floor_z: float, alpha: float):
+        super().__init__(state, alpha)
         self.point = point
         self.floor_z = floor_z
 
@@ -17,7 +17,6 @@ class FloorContact(Constraint):
                 "point": self.point,
                 "floor_z": self.floor_z,
                 "alpha": self.alpha,
-                "dt": self.dt,
             },
         }
 
@@ -25,7 +24,7 @@ class FloorContact(Constraint):
     def shape(self):
         return (1, )
 
-    def apply(self, lam, dt, **kwargs):
+    def _apply(self, lam, dt, **kwargs):
         contact = kwargs.get("contact", None)
         if contact is not None:
             raise NotImplementedError("Measured contact is not implemented")

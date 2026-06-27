@@ -50,7 +50,7 @@ class JointStructure:
                 [0, 2, 3],
                 [1, 2, 3],
             ],
-            ALPHA, DT
+            ALPHA
         )
 
         solid_2_weld = FacetedWeld(
@@ -61,20 +61,19 @@ class JointStructure:
                 [2, 4, 5],
                 [3, 4, 5],
             ],
-            ALPHA, DT
+            ALPHA
         )
 
         # TODO: note that a single joint leads to drift? Should look into this more.
         joints = [
-            Joint(self.state, [2, 3], 0, 4, ALPHA, DT),
-            Joint(self.state, [2, 3], 1, 5, ALPHA, DT)
+            Joint(self.state, [2, 3], 0, 4, ALPHA),
+            Joint(self.state, [2, 3], 1, 5, ALPHA)
         ]
-        self.vectorized_joints = VectorizedJoint.from_joints(self.state, joints, ALPHA, DT)
+        self.vectorized_joints = VectorizedJoint.from_joints(self.state, joints, ALPHA)
         vectorized_lengths = VectorizedLength.from_lengths(
             self.state,
             [*solid_1_weld.get_constraint_set(), *solid_2_weld.get_constraint_set()],
             ALPHA,
-            DT
         )
 
         floor_weld = FacetedWeld(
@@ -82,10 +81,10 @@ class JointStructure:
             [
                 torch.tensor([0, 1, 3, 2]) + 6,
             ],
-            1.0, DT
+            1.0
         )
 
-        contacts = [FloorContact(self.state, i, -1, 1.0, DT) for i in range(6)]
+        contacts = [FloorContact(self.state, i, -1, 1.0) for i in range(6)]
         simulator = Simulator(
             constraints=[
                 vectorized_lengths,

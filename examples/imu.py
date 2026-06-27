@@ -50,11 +50,10 @@ class IMU:
                 [2, 4, 0],
             ],
             ALPHA,
-            DT
         )
 
         interior_point_constraint = LengthSet(
-            self.state, [5], [0, 1, 2, 3, 4], ALPHA, DT
+            self.state, [5], [0, 1, 2, 3, 4], ALPHA
         )
 
         floor_weld = FacetedWeld(
@@ -62,11 +61,11 @@ class IMU:
             [
                 [6, 7, 9, 8],
             ],
-            1.0, DT
+            1.0
         )
 
-        contacts = [FloorContact(self.state, i, -1, 1.0, DT) for i in range(5)]
-        self.imu = PitchRollIMU(self.state, [4, 5], ALPHA, DT)
+        contacts = [FloorContact(self.state, i, -1, 1.0) for i in range(5)]
+        self.imu = PitchRollIMU(self.state, [4, 5], ALPHA)
 
         self.simulator = Simulator(
             constraints=[

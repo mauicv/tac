@@ -15,10 +15,9 @@ class Joint(Constraint):
             from_point: int,
             to_point: int,
             alpha: float,
-            dt: float,
         ):
         assert len(axis_points) == 2, "Axis points must be a pair"
-        super().__init__(state, alpha, dt)
+        super().__init__(state, alpha)
         self.axis_points = axis_points
         self.from_point = from_point
         self.to_point = to_point
@@ -34,7 +33,6 @@ class Joint(Constraint):
                 "from_point": self.from_point,
                 "to_point": self.to_point,
                 "alpha": self.alpha,
-                "dt": self.dt,
             },
         }
 
@@ -55,7 +53,7 @@ class Joint(Constraint):
         theta = torch.atan2(cross, dot)
         return theta, u, v, n  # theta (B, 1), u/v/n (B, 3)
 
-    def apply(self, lam, dt, **kwargs):
+    def _apply(self, lam, dt, **kwargs):
         offset = kwargs.get("offset", None)
         if offset is not None:
             self.offset = offset
@@ -103,12 +101,11 @@ class VectorizedJoint(Constraint):
             from_idx: List[int],            # m from-points
             to_idx: List[int],              # m to-points
             alpha: float,
-            dt: float,
         ):
         assert len(from_idx) == len(to_idx) == len(axis_points), \
             "axis_points, from_idx and to_idx must have the same length"
         assert all(len(ap) == 2 for ap in axis_points), "Each axis must be a pair of points"
-        super().__init__(state, alpha, dt)
+        super().__init__(state, alpha)
         self.axis_points = axis_points
         self.from_idx = list(from_idx)
         self.to_idx = list(to_idx)
@@ -125,13 +122,13 @@ class VectorizedJoint(Constraint):
         self.offset = 0.0
 
     @classmethod
-    def from_joints(cls, state: State, joints: List[Joint], alpha: float, dt: float):
+    def from_joints(cls, state: State, joints: List[Joint], alpha: float):
         return cls(
             state,
             [joint.axis_points for joint in joints],
             [joint.from_point for joint in joints],
             [joint.to_point for joint in joints],
-            alpha, dt,
+            alpha
         )
 
     @property
@@ -146,7 +143,6 @@ class VectorizedJoint(Constraint):
                 "from_idx": self.from_idx,
                 "to_idx": self.to_idx,
                 "alpha": self.alpha,
-                "dt": self.dt,
             },
         }
 
@@ -168,7 +164,7 @@ class VectorizedJoint(Constraint):
         theta, *_ = self._compute_joint_state(self.state)
         return theta   # (B, m, 1)
 
-    def apply(self, lam, dt, **kwargs):
+    def _apply(self, lam, dt, **kwargs):
         assert lam.shape == (self.state.batch_size, len(self.from_idx), 1), \
             "Lambda must be a tensor of shape (b, m, 1)"
         offset = kwargs.get("offset", None)

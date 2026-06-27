@@ -7,8 +7,8 @@ from tac.constraints.base import Constraint
 class Length(Constraint):
     constraint_types = ["simulated"]
 
-    def __init__(self, state: State, i: int, j: int, alpha: float, dt: float):
-        super().__init__(state, alpha, dt)
+    def __init__(self, state: State, i: int, j: int, alpha: float):
+        super().__init__(state, alpha)
         self.i = i
         self.j = j
         dist = self.get_length()    # shape, (b, 1)
@@ -25,7 +25,7 @@ class Length(Constraint):
     def shape(self):
         return (1, )
 
-    def apply(self, lam, dt, **kwargs):
+    def _apply(self, lam, dt, **kwargs):
         assert lam.shape == (self.state.batch_size, 1), "Lambda must be a tensor of shape (b, 1)"
         x,y = self.state.x_current[:, self.i], self.state.x_current[:, self.j]
         delta = x - y                                                                   # shape, (b, 3)
@@ -49,15 +49,14 @@ class Length(Constraint):
                 "i": self.i,
                 "j": self.j,
                 "alpha": self.alpha,
-                "dt": self.dt,
             },
         }
 
 
 class VectorizedLength(Constraint):
-    def __init__(self, state: State, i_idx: List[int], j_idx: List[int], alpha: float, dt: float):
+    def __init__(self, state: State, i_idx: List[int], j_idx: List[int], alpha: float):
         assert len(i_idx) == len(j_idx), "i_idx and j_idx must have the same length"
-        super().__init__(state, alpha, dt)
+        super().__init__(state, alpha)
         self.i_idx = i_idx
         self.j_idx = j_idx
         # long index tensors for index_add_ scatter (cached to avoid per-step rebuilds)
@@ -67,8 +66,8 @@ class VectorizedLength(Constraint):
         self.L = dist[[0], :]     # shape, (1, m)
 
     @classmethod
-    def from_lengths(cls, state: State, lengths: List[Length], alpha: float, dt: float):
-        return cls(state, [length.i for length in lengths], [length.j for length in lengths], alpha, dt)
+    def from_lengths(cls, state: State, lengths: List[Length], alpha: float):
+        return cls(state, [length.i for length in lengths], [length.j for length in lengths], alpha)
 
     @property
     def shape(self):
@@ -80,7 +79,7 @@ class VectorizedLength(Constraint):
         dist = torch.linalg.vector_norm(x - y, dim=-1, keepdim=True)
         return dist # shape, (b, m, 1)
 
-    def apply(self, lam, dt, **kwargs):
+    def _apply(self, lam, dt, **kwargs):
         assert lam.shape == (self.state.batch_size, len(self.i_idx), 1), "Lambda must be a tensor of shape (b, m, 1)"
         x = self.state.x_current[:,self.i_idx]                                                      # shape, (b, m, 3)
         y = self.state.x_current[:,self.j_idx]                                                      # shape, (b, m, 3)
@@ -106,6 +105,5 @@ class VectorizedLength(Constraint):
                 "i_idx": self.i_idx,
                 "j_idx": self.j_idx,
                 "alpha": self.alpha,
-                "dt": self.dt,
             },
         }

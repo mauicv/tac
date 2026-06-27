@@ -20,7 +20,7 @@ class TwoPoints:
         )
         state.x_current[:, 0] = torch.tensor([-0.15, 0.0, 0.0])
         state.x_current[:, 1] = torch.tensor([1.15, 0.0, 0.0])
-        length = Length(state, 0, 1, alpha, DT)
+        length = Length(state, 0, 1, alpha)
         inertia = Inertia([0, 1])
 
         self.state = state

@@ -47,8 +47,7 @@ class Box:
                 [2, 3, 7, 6],
                 [4, 5, 7, 6]
             ],
-            alpha,
-            DT
+            alpha
         )
 
         floor_weld = FacetedWeld(
@@ -56,14 +55,13 @@ class Box:
             [
                 [8, 9, 11, 10],
             ],
-            alpha,
-            DT
+            alpha
         )
 
         self.simulator = Simulator(
             constraints=[
-                *[FloorContact(self.state, i, -1, alpha, DT) for i in range(8)],
-                VectorizedLength.from_lengths(self.state, cube_weld.get_constraint_set(), alpha, DT),
+                *[FloorContact(self.state, i, -1, alpha) for i in range(8)],
+                VectorizedLength.from_lengths(self.state, cube_weld.get_constraint_set(), alpha),
             ],
             effects=[
                 Inertia([0, 1, 2, 3, 4, 5, 6, 7]),

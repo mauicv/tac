@@ -23,10 +23,9 @@ class PitchRollIMU(Constraint):
             state: State,
             imu_points: List[int],
             alpha: float,
-            dt: float
         ):
         assert len(imu_points) == 2, "There must be exactly two IMU points"
-        super().__init__(state, alpha, dt)
+        super().__init__(state, alpha)
         self.imu_points = imu_points
 
         # for logging:
@@ -51,7 +50,7 @@ class PitchRollIMU(Constraint):
         v = self.state.x_current[:, self.imu_points[1]] - self.state.x_current[:, self.imu_points[0]] # (B, 2, 3)
         return _normalize(v) # (B, 1, 3)
 
-    def apply(self, lam, dt, **kwargs):
+    def _apply(self, lam, dt, **kwargs):
         pitch = kwargs.get("pitch", None)
         roll = kwargs.get("roll", None)
         if pitch is None or roll is None: return lam

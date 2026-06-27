@@ -5,14 +5,14 @@ from typing import List
 
 
 class SimpleWeld(Constraint):
-    def __init__(self, state: State, points: List[int], alpha: float, dt: float):
-        super().__init__(state, alpha, dt)
+    def __init__(self, state: State, points: List[int], alpha: float):
+        super().__init__(state, alpha)
         self.points = points
         self.lengths = []
 
         for i in range(len(points)):
             for j in range(i+1, len(points)):
-                self.lengths.append(Length(state, points[i], points[j], alpha, dt))
+                self.lengths.append(Length(state, points[i], points[j], alpha))
 
     def to_dict(self):
         return {
@@ -20,7 +20,6 @@ class SimpleWeld(Constraint):
             "params": {
                 "points": self.points,
                 "alpha": self.alpha,
-                "dt": self.dt,
             },
         }
 
@@ -29,13 +28,13 @@ class SimpleWeld(Constraint):
 
 
 class FacetedWeld(Constraint):
-    def __init__(self, state: State, faces: List[List[int]], alpha: float, dt: float):
-        super().__init__(state, alpha, dt)
+    def __init__(self, state: State, faces: List[List[int]], alpha: float):
+        super().__init__(state, alpha)
         self.faces = faces
         self.face_welds = []
 
         for face in faces:
-            face_weld = SimpleWeld(state, face, alpha, dt)
+            face_weld = SimpleWeld(state, face, alpha)
             self.face_welds.append(face_weld)
 
     def to_dict(self):
@@ -44,7 +43,6 @@ class FacetedWeld(Constraint):
             "params": {
                 "faces": self.faces,
                 "alpha": self.alpha,
-                "dt": self.dt,
             },
         }
 
@@ -56,15 +54,15 @@ class FacetedWeld(Constraint):
 
 
 class LengthSet(Constraint):
-    def __init__(self, state: State, A: List[int], B: List[int], alpha: float, dt: float):
-        super().__init__(state, alpha, dt)
+    def __init__(self, state: State, A: List[int], B: List[int], alpha: float):
+        super().__init__(state, alpha)
         self.A = A
         self.B = B
         self.lengths = []
 
         for i in range(len(A)):
             for j in range(len(B)):
-                self.lengths.append(Length(state, A[i], B[j], alpha, dt))
+                self.lengths.append(Length(state, A[i], B[j], alpha))
 
     def to_dict(self):
         return {
@@ -73,7 +71,6 @@ class LengthSet(Constraint):
                 "A": self.A,
                 "B": self.B,
                 "alpha": self.alpha,
-                "dt": self.dt,
             },
         }
 
