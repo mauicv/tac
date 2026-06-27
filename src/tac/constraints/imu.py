@@ -77,8 +77,8 @@ class PitchRollIMU(Constraint):
             w_tail = self.state.inv_mass[:, [tail]]                                                 # (B, 1)
             dC2 = (dC * dC).sum(-1, keepdim=True)                                                   # |dC|² (B, 1)
             w_sum = (w_head + w_tail) * dC2                                                         # (B, 1)
-
-            d_lambda = (-C - self.a_tilde * lam) / (w_sum + self.a_tilde).clamp_min(_EPS)             # (B, 1)
+            residual = C + self.a_tilde * lam
+            d_lambda = - residual / (w_sum + self.a_tilde).clamp_min(_EPS)             # (B, 1)
             # Apply as an equal-and-opposite couple on the two IMU points: ∂θ/∂head = +dC,
             # ∂θ/∂tail = -dC. This rotates the body axis; weld rigidity carries the rest.
             self.state.x_current[:, head] +=  w_head * dC * d_lambda                                # (B, 3)

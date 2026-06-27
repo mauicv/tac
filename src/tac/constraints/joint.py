@@ -25,20 +25,13 @@ class Joint(Constraint):
         self.theta = theta
         self.offset = 0.0
 
-    def to_dict(self):
-        return {
-            "class": "Joint",
-            "params": {
-                "axis_points": self.axis_points,
-                "from_point": self.from_point,
-                "to_point": self.to_point,
-                "alpha": self.alpha,
-            },
-        }
+    def get_theta(self):
+        theta, u, v, n = self._compute_joint_state(self.state)
+        return theta
 
-    @property
-    def shape(self):
-        return (1, )
+    def get_residual(self, lam: torch.Tensor):
+        C = self.get_theta() - self.theta + self.offset
+        return C + self.a_tilde * lam
 
     def _compute_joint_state(self, state: State) -> torch.Tensor:
         x = state.x_current
@@ -76,7 +69,8 @@ class Joint(Constraint):
         w_to   = w[:, [self.to_point]]     # (B, 1)
         w_sum = w_from * gf2 + w_to * gt2  # (B, 1)
 
-        d_lambda = (-C - self.a_tilde * lam) / (w_sum + self.a_tilde).clamp_min(_EPS)  # (B, 1)
+        residual = C + self.a_tilde * lam
+        d_lambda = - residual / (w_sum + self.a_tilde).clamp_min(_EPS)  # (B, 1)
 
         from_update = w_from * g_from * d_lambda   # (B, 3)
         to_update   = w_to   * g_to   * d_lambda   # (B, 3)
@@ -92,6 +86,21 @@ class Joint(Constraint):
 
     def _get_points(self):
         return [self.from_point, self.to_point, self.axis_points[0], self.axis_points[1]]
+
+    @property
+    def shape(self):
+        return (1, )
+
+    def to_dict(self):
+        return {
+            "class": "Joint",
+            "params": {
+                "axis_points": self.axis_points,
+                "from_point": self.from_point,
+                "to_point": self.to_point,
+                "alpha": self.alpha,
+            },
+        }
 
 
 class VectorizedJoint(Constraint):
@@ -134,21 +143,6 @@ class VectorizedJoint(Constraint):
             alpha
         )
 
-    @property
-    def shape(self):
-        return (len(self.from_idx), 1)
-
-    def to_dict(self):
-        return {
-            "class": "VectorizedJoint",
-            "params": {
-                "axis_points": self.axis_points,
-                "from_idx": self.from_idx,
-                "to_idx": self.to_idx,
-                "alpha": self.alpha,
-            },
-        }
-
     def _compute_joint_state(self, state: State):
         x = state.x_current
         p = x[:, self.axis0_idx]   # (B, m, 3)
@@ -166,6 +160,10 @@ class VectorizedJoint(Constraint):
     def get_theta(self):
         theta, *_ = self._compute_joint_state(self.state)
         return theta   # (B, m, 1)
+
+    def get_residual(self, lam: torch.Tensor):
+        C = self.get_theta() - self.theta + self.offset
+        return C + self.a_tilde * lam
 
     def _apply(self, lam, dt, **kwargs):
         assert lam.shape == (self.state.batch_size, len(self.from_idx), 1), \
@@ -189,7 +187,8 @@ class VectorizedJoint(Constraint):
         w_to   = w[:, self.to_idx, None]     # (B, m, 1)
         w_sum = w_from * gf2 + w_to * gt2    # (B, m, 1)
 
-        d_lambda = (-C - self.a_tilde * lam) / (w_sum + self.a_tilde).clamp_min(_EPS)  # (B, m, 1)
+        residual = C + self.a_tilde * lam
+        d_lambda = - residual / (w_sum + self.a_tilde).clamp_min(_EPS)  # (B, m, 1)
 
         from_update = w_from * g_from * d_lambda   # (B, m, 3)
         to_update   = w_to   * g_to   * d_lambda   # (B, m, 3)
@@ -204,3 +203,18 @@ class VectorizedJoint(Constraint):
         xc.index_add_(1, self.axis1_t, -sum_update)
 
         return lam + d_lambda
+    
+    @property
+    def shape(self):
+        return (len(self.from_idx), 1)
+
+    def to_dict(self):
+        return {
+            "class": "VectorizedJoint",
+            "params": {
+                "axis_points": self.axis_points,
+                "from_idx": self.from_idx,
+                "to_idx": self.to_idx,
+                "alpha": self.alpha,
+            },
+        }

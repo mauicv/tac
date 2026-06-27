@@ -34,13 +34,21 @@ class Length(Constraint):
         C = dist - self.L                                                               # shape, (b, 1)
         wa, wb = self.state.inv_mass[:, [self.i]], self.state.inv_mass[:, [self.j]]     # shape, (b, 1)
         denum = wa + wb + self.a_tilde                                                       # shape, (b, 1)
-        dlam = - (C + self.a_tilde * lam) / denum                                            # shape, (b, 1)
+        residual = C + self.a_tilde * lam
+        dlam = - residual / denum                                                                # shape, (b, 1)
         lam = lam + dlam                                                                # shape, (b, 1)
         x_update = wa * dlam * n
         y_update = - wb * dlam * n
         self.state.x_current[:, self.i] += x_update                                     # shape, (b, 3)
         self.state.x_current[:, self.j] += y_update                                     # shape, (b, 3)
         return lam
+
+    def _get_points(self):
+        return [self.i, self.j]
+
+    def get_residual(self, lam: torch.Tensor):
+        C = self.get_length() - self.L
+        return C + self.a_tilde * lam
 
     def to_dict(self):
         return {
@@ -51,9 +59,6 @@ class Length(Constraint):
                 "alpha": self.alpha,
             },
         }
-
-    def _get_points(self):
-        return [self.i, self.j]
 
 
 class VectorizedLength(Constraint):
@@ -90,8 +95,9 @@ class VectorizedLength(Constraint):
         n = (x - y) / dist.clamp(min=1e-6)
         C = dist - self.L                                                                           # shape, (b, m, 1)
         wa, wb = self.state.inv_mass[:,self.i_idx, None], self.state.inv_mass[:,self.j_idx, None]   # shape, (b, m, 1)
-        denum = wa + wb + self.a_tilde                                                                   # shape, (b, m, 1)
-        dlam = - (C + self.a_tilde * lam) / denum                                                        # shape, (b, m, 1)
+        denum = wa + wb + self.a_tilde                                                              # shape, (b, m, 1)
+        residual = C + self.a_tilde * lam
+        dlam = - residual / denum                                                                   # shape, (b, m, 1)
         lam = lam + dlam                                                                            # shape, (b, m, 1)
         x_update = wa * dlam * n                                                                    # shape, (b, m, 3)
         y_update = - wb * dlam * n                                                                  # shape, (b, m, 3)
@@ -100,6 +106,10 @@ class VectorizedLength(Constraint):
         self.state.x_current.index_add_(1, self.i_t, x_update)                                      # shape, (b, m, 3)
         self.state.x_current.index_add_(1, self.j_t, y_update)                                      # shape, (b, m, 3)
         return lam                                                                                  # shape, (b, m, 1)
+
+    def get_residual(self, lam: torch.Tensor):
+        C = self.get_length() - self.L
+        return C + self.a_tilde * lam
 
     def to_dict(self):
         return {

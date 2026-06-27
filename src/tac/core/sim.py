@@ -39,6 +39,8 @@ class Simulator:
             self.constraints = _optimize_constraints(self.state, self.constraints, constraint_optimisation)
 
         self.lambdas = [torch.zeros(batch_size, *constraint.shape) for constraint in self.constraints]
+        for constraint in self.constraints:
+            constraint.dt = self.dt
 
     def zero_lambdas(self):
         for lambda_val in self.lambdas:
@@ -55,7 +57,7 @@ class Simulator:
 
         for _ in range(self.num_iter):
             for ind, (lambda_val, constraint) in enumerate(zip(self.lambdas, self.constraints)):
-                with self.perf_rec(f"constraint_apply_{constraint.__class__.__name__}-{constraint.shape }-{ind}"):
+                with self.perf_rec(f"constraint_apply_{constraint.__class__.__name__}-{constraint.shape}-{ind}", constraint, lambda_val):
                     lambda_val = constraint.apply(lambda_val, self.dt, **measurements)
         return state
 
@@ -64,7 +66,7 @@ class Simulator:
             state: State,
         ):
         for effect in self.effects:
-            with self.perf_rec(f"effect_apply_{effect.__class__.__name__}"):
+            with self.perf_rec(f"effect_apply_{effect.__class__.__name__}", effect, None):
                 state = effect.apply(state, self.dt)
         return state
 

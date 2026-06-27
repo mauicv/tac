@@ -1,18 +1,20 @@
 import random
 import sys
 import time
+from tac.constraints.base import Constraint
 
 
 class PerformanceMonitor:
     def __init__(self, print_every: int = 100):
         self.average_events = {}            # event_name -> EMA of elapsed seconds
         self.total_events = {}              # event_name -> total elapsed seconds
+        self.residual_events = {}           # event_name -> EMA of |residual|
         self._lines_printed = 0     # rows written by the last print_stats (for overwrite)
         self.iterations = 0
         self.print_every = print_every
 
-    def __call__(self, event_name):
-        self._current = event_name
+    def __call__(self, name, obj, lam):
+        self._current = (name, obj, lam)
         return self
 
     def __enter__(self):
@@ -21,10 +23,18 @@ class PerformanceMonitor:
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         elapsed = time.perf_counter() - self._start
-        prev = self.average_events.get(self._current)
+        obj_name, obj, lam = self._current
+        prev = self.average_events.get(obj_name)
         # seed on first observation, otherwise exponential moving average
-        self.average_events[self._current] = elapsed if prev is None else 0.9 * prev + 0.1 * elapsed
-        self.total_events[self._current] = self.total_events.get(self._current, 0) + elapsed
+        self.average_events[obj_name] = elapsed if prev is None else 0.9 * prev + 0.1 * elapsed
+        self.total_events[obj_name] = self.total_events.get(obj_name, 0) + elapsed
+
+        # |residual| = |C + a_tilde * lam|; abs-mean so signed sub-residuals of a
+        # vectorized constraint don't cancel to a misleadingly small value.
+        if lam is not None:
+            residual = obj.get_residual(lam).abs().mean().item()
+            prev_r = self.residual_events.get(obj_name)
+            self.residual_events[obj_name] = residual if prev_r is None else 0.9 * prev_r + 0.1 * residual
         return False
 
     @staticmethod
@@ -58,8 +68,8 @@ class PerformanceMonitor:
 
         name_w = max((len(l) for l in labels), default=len("event"))
         name_w = max(name_w, len("event"), len("total"))
-        avg_w, tot_w = 14, 14
-        header = f"{'event':<{name_w}}   {'ms/call (EMA)':>{avg_w}}   {'total s':>{tot_w}}"
+        avg_w, tot_w, res_w = 14, 14, 14
+        header = f"{'event':<{name_w}}   {'ms/call (EMA)':>{avg_w}}   {'total s':>{tot_w}}   {'|residual|':>{res_w}}"
         sep = "-" * len(header)
 
         lines = [header, sep]
@@ -67,11 +77,14 @@ class PerformanceMonitor:
         tot_sum = 0.0
         for label, (name, t) in zip(labels, rows):
             tot = self.total_events.get(name, 0.0)
+            r = self.residual_events.get(name)
             avg_sum += t
             tot_sum += tot
-            lines.append(f"{label:<{name_w}}   {t * 1e3:>{avg_w}.4f}   {tot:>{tot_w}.4f}")
+            r_str = f"{r:.3e}" if r is not None else "—"
+            lines.append(f"{label:<{name_w}}   {t * 1e3:>{avg_w}.4f}   {tot:>{tot_w}.4f}   {r_str:>{res_w}}")
         lines.append(sep)
-        lines.append(f"{'total':<{name_w}}   {avg_sum * 1e3:>{avg_w}.4f}   {tot_sum:>{tot_w}.4f}")
+        # no residual total: residuals have different units per constraint type
+        lines.append(f"{'total':<{name_w}}   {avg_sum * 1e3:>{avg_w}.4f}   {tot_sum:>{tot_w}.4f}   {'—':>{res_w}}")
 
         sys.stdout.write("\n".join(lines) + "\n")
         sys.stdout.flush()
@@ -83,4 +96,5 @@ class PerformanceMonitor:
     def reset(self):
         self.average_events = {}
         self.total_events = {}
+        self.residual_events = {}
         self._lines_printed = 0
