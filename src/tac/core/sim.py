@@ -57,7 +57,7 @@ class Simulator:
 
         for _ in range(self.num_iter):
             for ind, (lambda_val, constraint) in enumerate(zip(self.lambdas, self.constraints)):
-                with self.perf_rec(f"constraint_apply_{constraint.__class__.__name__}-{constraint.shape}-{ind}", constraint, lambda_val):
+                with self.perf_rec(f"constraint_apply_{constraint.__class__.__name__}", constraint, lambda_val):
                     lambda_val = constraint.apply(lambda_val, self.dt, **measurements)
         return state
 

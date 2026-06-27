@@ -97,7 +97,7 @@ class JointStructure:
             ],
             num_iter=3,
             dt=DT,
-            constraint_optimisation='Gauss-Seidel'
+            constraint_optimisation='None'
         )
         self.simulator = simulator
         self.renderer = Renderer(self.state, [solid_1_weld, solid_2_weld, floor_weld])

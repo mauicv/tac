@@ -14,7 +14,8 @@ import pyvista as pv
 from tqdm import tqdm
 
 
-ALPHA = 0.00025
+LENGTH_ALPHA = 0.0
+JOINT_ALPHA = 0.0001
 DT = 0.005
 
 class Gnoci:
@@ -43,26 +44,33 @@ class Gnoci:
                 [n, n+1, n+3, n+2],
             ],
             1.0,
-            DT
         )
-        self.contacts = [FloorContact(self.state, i, min_z, 1.0, DT) for i in range(n)]
+        self.contacts = [FloorContact(self.state, i, min_z, 1.0) for i in range(n)]
         self.renderer = Renderer(
             state,
             [
                 welds[0],
-                # self.floor_weld
+                self.floor_weld
             ]
         )
-        self.vectorized_lengths = VectorizedLength.from_lengths(self.state, self.welds.get_constraint_set(), ALPHA, DT)
-        # self.vectorized_joints = VectorizedJoint.from_joints(self.state, self.joints, ALPHA, DT)
+        self.vectorized_lengths = VectorizedLength.from_constraints(
+            self.state,
+            self.welds.get_constraint_set(),
+            LENGTH_ALPHA
+        )
+        # self.vectorized_joints = VectorizedJoint.from_joints(
+        #     self.state,
+        #     self.joints,
+        #     JOINT_ALPHA
+        # )
 
         self.simulator = Simulator(
-            simulated_constraints=[
+            state=self.state,
+            constraints=[
                 self.vectorized_lengths,
                 # *self.joints,
                 *self.contacts
             ],
-            measured_constraints=[],
             effects=[
                 Gravity(list(range(n)), [0.0, 0.0, -9.81]),
                 Inertia(list(range(n))),
