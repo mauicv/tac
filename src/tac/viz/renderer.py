@@ -37,7 +37,12 @@ class Renderer:
                 cells.extend(weld_2_cells(visable_constraint))
 
         self.mesh = pv.PolyData(points, cells)
-        self.plotter.add_mesh(self.mesh, show_edges=True, color='grey', style='wireframe')
+        self.plotter.add_mesh(
+            self.mesh,
+            show_edges=True,
+            color='grey',
+            # style='wireframe'
+        )
 
         center = self.mesh.points.mean(axis=0)
         self.plotter.camera.position = center + np.array([camera_distance, camera_distance, camera_distance])

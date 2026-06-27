@@ -10,23 +10,20 @@ from tac.constraints.imu import PitchRollIMU
 from tac.perf import PerformanceMonitor
 
 
-
-
+# TODO: just have constraints not simulated and measured.
 class Simulator:
     def __init__(
             self,
-            simulated_constraints: List[Union[Length, Joint, FloorContact]],
-            measured_constraints: List[Union[PitchRollIMU, Joint, FloorContact]],
+            constraints: List[Union[Length, Joint, FloorContact, PitchRollIMU]],
             effects: List[Union[Inertia, Gravity]],
             num_iter: int = 10,
             dt: float = 0.01,
             batch_size: int = 1,
-            verbose: bool = True
+            optimize_constraints: bool = True,
+            verbose: bool = True,
         ):
         self.effects = effects
-        self.simulated_constraints = simulated_constraints
-        self.measured_constraints = measured_constraints
-        self.constraints = [*simulated_constraints, *measured_constraints]
+        self.constraints = constraints
         self.batch_size = batch_size
         self.lambdas = [torch.zeros(batch_size, *constraint.shape) for constraint in self.constraints]
         self.num_iter = num_iter
@@ -56,12 +53,20 @@ class Simulator:
             self.perf_rec.print_stats()
         return state
 
+    def effect_step(
+            self,
+            state: State,
+        ):
+        for effect in self.effects:
+            with self.perf_rec(f"effect_apply_{effect.__class__.__name__}"):
+                state = effect.apply(state, self.dt)
+        return state
+
     def step(
             self,
             state: State,
             measurements: dict = None
         ):
-        for effect in self.effects:
-            state = effect.apply(state, self.dt)
+        state = self.effect_step(state=state)
         state = self.constraint_step(state=state, measurements=measurements)
         return state

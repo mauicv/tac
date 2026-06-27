@@ -1,5 +1,6 @@
 from tac.core.state import State
-from tac.constraints.length import Length
+from tac.constraints.length import Length, VectorizedLength
+from tac.constraints.joint import VectorizedJoint
 from tac.constraints.contact import FloorContact
 from tac.constraints.weld import FacetedWeld
 from tac.core.sim import Simulator
@@ -13,6 +14,9 @@ import pyvista as pv
 from tqdm import tqdm
 
 
+ALPHA = 0.00025
+DT = 0.005
+
 class Gnoci:
     def __init__(self, load_from_tac: bool = True):
         if load_from_tac:
@@ -20,14 +24,13 @@ class Gnoci:
         else:
             stl_parsed, state, welds, joints = load_stl("examples/gnoci/stl")
         # Add floor
-        print(len(welds[0].get_constraint_set()))
-        n = len(state.x_current)
+        n = state.x_current.shape[1]
         min_z = state.x_current[:, :, 2].min()
         state.add(torch.tensor([
-                [-5.0,-5.0, min_z],
-                [5.0, -5.0, min_z],
-                [-5.0, 5.0, min_z],
-                [5.0, 5.0, min_z],
+                [-1.0,-1.0, min_z],
+                [1.0, -1.0, min_z],
+                [-1.0, 1.0, min_z],
+                [1.0, 1.0, min_z],
             ]),
             inv_mass=torch.tensor([0.0, 0.0, 0.0, 0.0])
         )
@@ -39,40 +42,48 @@ class Gnoci:
             [
                 [n, n+1, n+3, n+2],
             ],
-            1.0
+            1.0,
+            DT
         )
-        self.contacts = [FloorContact(self.state, i, min_z, 1.0) for i in range(n)]
-        # self.renderer = Renderer(state, [self.floor_weld, welds[0]])
+        self.contacts = [FloorContact(self.state, i, min_z, 1.0, DT) for i in range(n)]
+        self.renderer = Renderer(
+            state,
+            [
+                welds[0],
+                # self.floor_weld
+            ]
+        )
+        self.vectorized_lengths = VectorizedLength.from_lengths(self.state, self.welds.get_constraint_set(), ALPHA, DT)
+        # self.vectorized_joints = VectorizedJoint.from_joints(self.state, self.joints, ALPHA, DT)
+
         self.simulator = Simulator(
-            simulated_constraints=[*self.welds.get_constraint_set(), *self.joints, *self.contacts],
+            simulated_constraints=[
+                self.vectorized_lengths,
+                # *self.joints,
+                *self.contacts
+            ],
             measured_constraints=[],
             effects=[
                 Gravity(list(range(n)), [0.0, 0.0, -9.81]),
                 Inertia(list(range(n))),
             ],
-            num_iter=2,
-            dt=0.01
+            num_iter=1,
+            dt=DT
         )
 
     def step(self):
-        for _ in range(5):
+        for _ in range(10):
             self.state = self.simulator.step(self.state)
-        # self.renderer.update(self.state)
+        self.renderer.update(self.state)
 
     def close(self):
-        pass
-        # self.renderer.close()
+        self.renderer.close()
 
 
 if __name__ == "__main__":
     gnoci = Gnoci()
 
-    # for _ in tqdm(range(10)):
-    #     gnoci.step()
-    # gnoci.close()
+    for _ in range(1000):
+        gnoci.step()
 
-    # print(gnoci.simulator.perf_rec.events)
-
-    # import json
-    # with open("examples/gnoci/gnoci_perf.json", "w") as f:
-    #     json.dump(gnoci.simulator.perf_rec.events, f)
+    gnoci.close()

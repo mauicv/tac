@@ -87,17 +87,24 @@ def load_stl(file_path):
     joints = []
 
     faces = [face for face_size, face in faces_iter(stl_parsed.faces)]
-    welds = FacetedWeld(state, faces, 0.001)
+    welds = FacetedWeld(state, faces, 0.001, 0.005)
     
     for mesh_name_1 in stl_parsed.names:
         for mesh_name_2 in stl_parsed.names:
             if mesh_name_1 != mesh_name_2:
                 joint_points = stl_parsed._get_joint_points(mesh_name_1, mesh_name_2)
                 if len(joint_points) > 0:
-                    first_mesh_points = stl_parsed._get_mesh_points(mesh_name_1)
-                    second_mesh_points = stl_parsed._get_mesh_points(mesh_name_2)
-
-                    joint = Joint(state, axis_points=joint_points, from_points=first_mesh_points, to_points=second_mesh_points, alpha=0.01)
+                    first_mesh_point = stl_parsed._get_mesh_points(mesh_name_1)[0]
+                    second_mesh_point = stl_parsed._get_mesh_points(mesh_name_2)[0]
+                    
+                    joint = Joint(
+                        state,
+                        axis_points=joint_points,
+                        from_point=first_mesh_point,
+                        to_point=second_mesh_point,
+                        alpha=0.01,
+                        dt=0.005
+                    )
                     joints.append(joint)
 
     return stl_parsed, state, welds, joints

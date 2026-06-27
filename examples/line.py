@@ -10,7 +10,7 @@ DT=0.01
 
 class TwoPoints:
     def __init__(self, alpha: float = 1.0):
-        self.state = State(
+        state = State(
             torch.tensor([
                 [0.0, 0.0, 0.0],
                 [1.0, 0.0, 0.0],
@@ -18,27 +18,30 @@ class TwoPoints:
             inv_mass=torch.tensor([1.0, 1.0]),
             batch_size=1
         )
-        self.length = Length(self.state, 0, 1, alpha, DT)
-        self.state.x_current[:, 0] = torch.tensor([-0.15, 0.0, 0.0])
-        self.state.x_current[:, 1] = torch.tensor([1.15, 0.0, 0.0])
+        state.x_current[:, 0] = torch.tensor([-0.15, 0.0, 0.0])
+        state.x_current[:, 1] = torch.tensor([1.15, 0.0, 0.0])
+        length = Length(state, 0, 1, alpha, DT)
+        inertia = Inertia([0, 1])
 
-    def get_simulated_constraint_set(self):
-        return [self.length]
+        self.state = state
+        self.simulator = Simulator(
+            constraints=[length],
+            effects=[inertia],
+            num_iter=2,
+            dt=DT,
+            optimize_constraints=False
+        )
+
+    def step(self):
+        self.state = self.simulator.step(self.state)
+        return self.state
 
 
 if __name__ == "__main__":
     two_points = TwoPoints(alpha=0.001)
-    inertia = Inertia([0, 1])
-    simulator = Simulator(
-        simulated_constraints=two_points.get_simulated_constraint_set(),
-        measured_constraints=[],
-        effects=[inertia],
-        num_iter=2,
-        dt=DT
-    )
     lengths = []
     for _ in range(100):
-        two_points.state = simulator.step(two_points.state)
-        lengths.append(two_points.length.get_length()[0,0].item())
+        two_points.step()
+        lengths.append(two_points.simulator.constraints[0].get_length()[0,0].item())
     plt.plot(lengths)
     plt.show()

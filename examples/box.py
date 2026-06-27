@@ -37,7 +37,7 @@ class Box:
             ]),
             batch_size=1
         )
-        self.cube_weld = FacetedWeld(
+        cube_weld = FacetedWeld(
             self.state,
             [
                 [0, 1, 3, 2],
@@ -51,7 +51,7 @@ class Box:
             DT
         )
 
-        self.floor_weld = FacetedWeld(
+        floor_weld = FacetedWeld(
             self.state,
             [
                 [8, 9, 11, 10],
@@ -60,14 +60,31 @@ class Box:
             DT
         )
 
-        self.contacts = [FloorContact(self.state, i, -1, alpha, DT) for i in range(8)]
-        self.vectorized_length = VectorizedLength.from_lengths(self.state, self.cube_weld.get_constraint_set(), alpha, DT)
+        self.simulator = Simulator(
+            constraints=[
+                *[FloorContact(self.state, i, -1, alpha, DT) for i in range(8)],
+                VectorizedLength.from_lengths(self.state, cube_weld.get_constraint_set(), alpha, DT),
+            ],
+            effects=[
+                Inertia([0, 1, 2, 3, 4, 5, 6, 7]),
+                Gravity([0, 1, 2, 3, 4, 5, 6, 7], [0.0, 0.0, -9.81])
+            ],
+            num_iter=2,
+            dt=DT
+        )
 
-    def get_simulated_constraint_set(self):
-        return [self.vectorized_length, *self.contacts]
+        self.renderer = Renderer(self.state, [cube_weld, floor_weld])
 
     def push_point(self, point: int, force: torch.Tensor):
         self.state.x_current[:, point] += force
+
+    def step(self):
+        for _ in range(10):
+            self.state = self.simulator.step(self.state)
+        self.renderer.update(self.state)
+
+    def close(self):
+        self.renderer.close()
 
 
 if __name__ == "__main__":
@@ -77,19 +94,6 @@ if __name__ == "__main__":
         i = random.randint(0, 7)
         box.push_point(i, torch.tensor([0.0, 0.001, 0.002]))
     
-    gravity = Gravity([0, 1, 2, 3, 4, 5, 6, 7], [0.0, 0.0, -9.81])
-    inertia = Inertia([0, 1, 2, 3, 4, 5, 6, 7])
-
-    simulator = Simulator(
-        simulated_constraints=box.get_simulated_constraint_set(),
-        measured_constraints=[],
-        effects=[inertia, gravity],
-        num_iter=2,
-        dt=DT
-    )
-    renderer = Renderer(box.state, [box.cube_weld, box.floor_weld])
-    for _ in range(1000):
-        for _ in range(10):
-            box.state = simulator.step(box.state)
-        renderer.update(box.state)
-    renderer.close()
+    for _ in range(300):
+        box.step()
+    box.close()

@@ -26,9 +26,15 @@ Tac is a simple XPBD physics engine that does 2 things:
 - [x] Implement Joint
     - class Joint:
     - takes axis_points, from_points, to_points
-- [ ] Implement IMU constraint
+- [x] Implement IMU constraint
 - [x] Implement examples:
-    - [x] Box
+    - [x] Box 
     - [x] Joint
     - [x] Line
-    - [ ] IMU
+    - [x] IMU
+    - [ ] Gnoci
+        - [ ] add COM point to each stl object and use length set
+        - [ ] Use COM points as joint from and tos
+- [x] Implement vectorized length and joint constraints
+- [ ] Implement vectorized contact constraint
+- [ ] implement colour sorting for vectorization
