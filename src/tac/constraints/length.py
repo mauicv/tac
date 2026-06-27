@@ -52,6 +52,9 @@ class Length(Constraint):
             },
         }
 
+    def _get_points(self):
+        return [self.i, self.j]
+
 
 class VectorizedLength(Constraint):
     def __init__(self, state: State, i_idx: List[int], j_idx: List[int], alpha: float):
@@ -66,7 +69,7 @@ class VectorizedLength(Constraint):
         self.L = dist[[0], :]     # shape, (1, m)
 
     @classmethod
-    def from_lengths(cls, state: State, lengths: List[Length], alpha: float):
+    def from_constraints(cls, state: State, lengths: List[Length], alpha: float):
         return cls(state, [length.i for length in lengths], [length.j for length in lengths], alpha)
 
     @property

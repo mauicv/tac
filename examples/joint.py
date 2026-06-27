@@ -93,7 +93,7 @@ class JointStructure:
             ],
             num_iter=3,
             dt=DT,
-            constraint_optimisation='Jacobi'
+            constraint_optimisation='Gauss-Seidel'
         )
         self.simulator = simulator
         self.renderer = Renderer(self.state, [solid_1_weld, solid_2_weld, floor_weld])

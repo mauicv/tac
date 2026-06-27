@@ -90,6 +90,9 @@ class Joint(Constraint):
 
         return lam + d_lambda
 
+    def _get_points(self):
+        return [self.from_point, self.to_point, self.axis_points[0], self.axis_points[1]]
+
 
 class VectorizedJoint(Constraint):
     constraint_types = ["measured", "simulated"]
@@ -122,7 +125,7 @@ class VectorizedJoint(Constraint):
         self.offset = 0.0
 
     @classmethod
-    def from_joints(cls, state: State, joints: List[Joint], alpha: float):
+    def from_constraints(cls, state: State, joints: List[Joint], alpha: float):
         return cls(
             state,
             [joint.axis_points for joint in joints],

@@ -27,3 +27,6 @@ class Constraint:
 
     def _apply(self, lam, dt, **kwargs):
         raise NotImplementedError("Subclasses must implement this method")
+
+    def _get_points(self):
+        raise NotImplementedError("Optimizable constraints must implement this method")

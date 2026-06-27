@@ -10,7 +10,7 @@ import torch
 
 
 DT = 0.005
-alpha = 0.0001
+alpha = 0.000
 
 class Box:
     def __init__(self):
@@ -70,7 +70,7 @@ class Box:
             ],
             num_iter=2,
             dt=DT,
-            constraint_optimisation='Jacobi'
+            constraint_optimisation='Gauss-Seidel'
         )
 
         self.renderer = Renderer(self.state, [cube_weld, floor_weld])

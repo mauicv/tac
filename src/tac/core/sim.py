@@ -22,7 +22,7 @@ class Simulator:
             num_iter: int = 10,
             dt: float = 0.01,
             batch_size: int = 1,
-            constraint_optimisation: Literal['None', 'Jacobi', 'Gauss-Seidel'] = 'Jacobi',
+            constraint_optimisation: Literal['None', 'Jacobi', 'Gauss-Seidel'] = 'Gauss-Seidel',
             verbose: bool = True,
         ):
         self.effects = effects
@@ -55,7 +55,7 @@ class Simulator:
 
         for _ in range(self.num_iter):
             for ind, (lambda_val, constraint) in enumerate(zip(self.lambdas, self.constraints)):
-                with self.perf_rec(f"constraint_apply_{constraint.__class__.__name__}"):
+                with self.perf_rec(f"constraint_apply_{constraint.__class__.__name__}-{constraint.shape }-{ind}"):
                     lambda_val = constraint.apply(lambda_val, self.dt, **measurements)
         return state
 
