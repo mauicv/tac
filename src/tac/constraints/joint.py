@@ -75,8 +75,11 @@ class Joint(Constraint):
         from_update = w_from * g_from * d_lambda   # (B, 3)
         to_update   = w_to   * g_to   * d_lambda   # (B, 3)
 
-        # TODO: is this correct? Reaction applied to both axis points.
-        sum_update = from_update + to_update       # (B, 3)
+        # The reaction is split across the two axis points so the net displacement
+        # over the four points is zero (an internal constraint must not translate
+        # the system). Without the /2 each axis point takes the full reaction and
+        # the joint injects spurious momentum.
+        sum_update = (from_update + to_update) / 2   # (B, 3)
 
         x[:, self.from_point] += from_update
         x[:, self.to_point]   += to_update
@@ -129,6 +132,19 @@ class VectorizedJoint(Constraint):
         self.to_t    = torch.as_tensor(self.to_idx,    dtype=torch.long, device=dev)
         self.axis0_t = torch.as_tensor(self.axis0_idx, dtype=torch.long, device=dev)
         self.axis1_t = torch.as_tensor(self.axis1_idx, dtype=torch.long, device=dev)
+        # Per-point under-relaxation: a point shared by k joints in this block gets
+        # k corrections summed by index_add_ (Jacobi overshoot). Pre-scale each update
+        # by 1/valence so the scattered sum averages instead of piling up. count is the
+        # TOTAL incidence across all four scatter arrays (from/to/axis0/axis1); a
+        # point-disjoint block has valence 1 everywhere -> exact Gauss-Seidel.
+        N = state.x_current.shape[1]
+        counts = torch.bincount(
+            torch.cat([self.from_t, self.to_t, self.axis0_t, self.axis1_t]), minlength=N
+        ).clamp_min(1)   # (N,)
+        self.from_scale  = (1.0 / counts[self.from_t]).view(1, -1, 1)    # (1, m, 1)
+        self.to_scale    = (1.0 / counts[self.to_t]).view(1, -1, 1)
+        self.axis0_scale = (1.0 / counts[self.axis0_t]).view(1, -1, 1)
+        self.axis1_scale = (1.0 / counts[self.axis1_t]).view(1, -1, 1)
         theta, *_ = self._compute_joint_state(state)
         self.theta = theta[[0]]   # (1, m, 1) rest angle, broadcasts over batch
         self.offset = 0.0
@@ -192,15 +208,19 @@ class VectorizedJoint(Constraint):
 
         from_update = w_from * g_from * d_lambda   # (B, m, 3)
         to_update   = w_to   * g_to   * d_lambda   # (B, m, 3)
-        sum_update  = from_update + to_update      # (B, m, 3)
+        # reaction split across the two axis points -> zero net displacement per
+        # joint (see Joint.apply); otherwise each axis point takes the full reaction
+        # and the joint injects spurious momentum.
+        sum_update  = (from_update + to_update) / 2   # (B, m, 3)
 
         # index_add_ accumulates duplicate indices (joints may share points); the
         # reaction -sum_update is applied to both axis points, as in Joint.apply.
+        # *_scale applies the per-point valence under-relaxation (averaged Jacobi).
         xc = self.state.x_current
-        xc.index_add_(1, self.from_t,  from_update)
-        xc.index_add_(1, self.to_t,    to_update)
-        xc.index_add_(1, self.axis0_t, -sum_update)
-        xc.index_add_(1, self.axis1_t, -sum_update)
+        xc.index_add_(1, self.from_t,  from_update * self.from_scale)
+        xc.index_add_(1, self.to_t,    to_update * self.to_scale)
+        xc.index_add_(1, self.axis0_t, -sum_update * self.axis0_scale)
+        xc.index_add_(1, self.axis1_t, -sum_update * self.axis1_scale)
 
         return lam + d_lambda
     

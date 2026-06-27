@@ -10,8 +10,8 @@ import random
 import torch
 import math
 
-DT=0.005
-ALPHA = 0.0001
+DT=0.001
+ALPHA = 0.00001
 
 class JointStructure:
     def __init__(self):
@@ -93,7 +93,7 @@ class JointStructure:
             ],
             num_iter=3,
             dt=DT,
-            constraint_optimisation='Gauss-Seidel'
+            constraint_optimisation='Jacobi'
         )
         self.simulator = simulator
         self.renderer = Renderer(self.state, [solid_1_weld, solid_2_weld, floor_weld])

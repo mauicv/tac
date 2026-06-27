@@ -70,8 +70,8 @@ class Box:
             ],
             num_iter=2,
             dt=DT,
-            constraint_optimisation='Gauss-Seidel'
-            # constraint_optimisation='Jacobi'
+            # constraint_optimisation='Gauss-Seidel'
+            constraint_optimisation='Jacobi'
         )
 
         self.renderer = Renderer(self.state, [cube_weld, floor_weld])

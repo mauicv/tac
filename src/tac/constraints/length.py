@@ -70,6 +70,15 @@ class VectorizedLength(Constraint):
         # long index tensors for index_add_ scatter (cached to avoid per-step rebuilds)
         self.i_t = torch.as_tensor(i_idx, dtype=torch.long, device=state.x_current.device)
         self.j_t = torch.as_tensor(j_idx, dtype=torch.long, device=state.x_current.device)
+        # Per-point under-relaxation: a point shared by k constraints in this block
+        # gets k corrections summed by index_add_ (Jacobi overshoot). Pre-scale each
+        # update by 1/valence so the scattered sum averages instead of piling up.
+        # count is the TOTAL incidence across both endpoint arrays; disjoint blocks
+        # have valence 1 everywhere, so this reduces to exact Gauss-Seidel.
+        N = state.x_current.shape[1]
+        counts = torch.bincount(torch.cat([self.i_t, self.j_t]), minlength=N).clamp_min(1)  # (N,)
+        self.i_scale = (1.0 / counts[self.i_t]).view(1, -1, 1)   # (1, m, 1)
+        self.j_scale = (1.0 / counts[self.j_t]).view(1, -1, 1)   # (1, m, 1)
         dist = self.get_length()    # shape, (b, m)
         self.L = dist[[0], :]     # shape, (1, m)
 
@@ -103,8 +112,9 @@ class VectorizedLength(Constraint):
         y_update = - wb * dlam * n                                                                  # shape, (b, m, 3)
         # index_add_ accumulates duplicate indices; plain `x[:, idx] += ...` does NOT
         # (last-write-wins), which silently drops most updates when points are shared.
-        self.state.x_current.index_add_(1, self.i_t, x_update)                                      # shape, (b, m, 3)
-        self.state.x_current.index_add_(1, self.j_t, y_update)                                      # shape, (b, m, 3)
+        # *_scale applies the per-point valence under-relaxation (averaged Jacobi).
+        self.state.x_current.index_add_(1, self.i_t, x_update * self.i_scale)                       # shape, (b, m, 3)
+        self.state.x_current.index_add_(1, self.j_t, y_update * self.j_scale)                       # shape, (b, m, 3)
         return lam                                                                                  # shape, (b, m, 1)
 
     def get_residual(self, lam: torch.Tensor):
