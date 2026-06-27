@@ -10,8 +10,8 @@ import random
 import torch
 import math
 
-DT=0.001
-ALPHA = 0.00001
+DT=0.01
+ALPHA = 0.0000
 
 class JointStructure:
     def __init__(self):
@@ -79,11 +79,15 @@ class JointStructure:
         )
 
         contacts = [FloorContact(self.state, i, -1, 1.0) for i in range(6)]
+        vectorized_lengths = VectorizedLength.from_constraints(
+            self.state,
+            solid_1_weld.get_constraint_set() + solid_2_weld.get_constraint_set(),
+            ALPHA
+        )
         simulator = Simulator(
             state=self.state,
             constraints=[
-                *solid_1_weld.get_constraint_set(),
-                *solid_2_weld.get_constraint_set(),
+                vectorized_lengths,
                 *joints,
                 *contacts
             ],
@@ -93,7 +97,7 @@ class JointStructure:
             ],
             num_iter=3,
             dt=DT,
-            constraint_optimisation='Jacobi'
+            constraint_optimisation='Gauss-Seidel'
         )
         self.simulator = simulator
         self.renderer = Renderer(self.state, [solid_1_weld, solid_2_weld, floor_weld])

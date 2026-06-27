@@ -57,7 +57,7 @@ def _gauss_seidel_optimise(state: State, constraints: List[Constraint], alphas, 
     if len(alphas) > 0:
         for constraint, alpha in zip(constraints, alphas):
             cover.add_constraint(constraint, alpha)
-        
+
     assert len(constraints) == sum(len(cs['constraints']) for cs in cover.constraint_sets)
     for cs in cover.constraint_sets:
         if len(cs['alphas']) > 0:
