@@ -33,12 +33,9 @@ Tac is a simple XPBD physics engine that does 2 things:
     - [x] Line
     - [x] IMU
     - [ ] Gnoci
-        - [ ] add COM point to each stl object and use length set
-        - [ ] Use COM points as joint from and tos
 - [x] Implement vectorized length and joint constraints
-- [ ] Implement vectorized contact constraint
-- [ ] implement colour sorting for vectorization
-
+- [x] Implement vectorized contact constraint
+- [x] implement colour sorting for vectorization
 
 # BUGLIST/MINOR:
 

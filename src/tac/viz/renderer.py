@@ -17,6 +17,12 @@ def weld_2_cells(weld: FacetedWeld):
     return cells
 
 
+def length_2_cells(length: Length):
+    cells = []
+    cells.append(2)
+    cells.extend([length.i, length.j])
+    return cells
+
 def state_2_points(state: State):
     return state.x_current[0].to('cpu').numpy()
 
@@ -31,17 +37,28 @@ class Renderer:
         self.plotter = pv.Plotter()
         points = state_2_points(state)
 
-        cells = []
+        # pyvista distinguishes faces (polygons, >=3 verts) from lines (2 verts).
+        # A Length is a line segment, so its cells must be passed via `lines=`, not
+        # as a face — a 2-vertex face is degenerate and renders as nothing.
+        face_cells = []
+        line_cells = []
         for visable_constraint in visable_constraints:
             if isinstance(visable_constraint, FacetedWeld):
-                cells.extend(weld_2_cells(visable_constraint))
+                face_cells.extend(weld_2_cells(visable_constraint))
+            elif isinstance(visable_constraint, Length):
+                line_cells.extend(length_2_cells(visable_constraint))
 
-        self.mesh = pv.PolyData(points, cells)
+        self.mesh = pv.PolyData(
+            points,
+            faces=face_cells or None,
+            lines=line_cells or None,
+        )
         self.plotter.add_mesh(
             self.mesh,
+            line_width=5,
             show_edges=True,
-            color='grey',
-            # style='wireframe'
+            color='red',
+            style='wireframe'
         )
 
         center = self.mesh.points.mean(axis=0)
