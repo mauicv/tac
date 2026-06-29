@@ -12,7 +12,8 @@ import torch
 import time
 
 
-foot_width = 0.2
+foot_stance_length = 0.2
+foot_width = 0.1
 foot_height = 0.3
 knee_height = 0.5
 hip_height = 0.8
@@ -25,18 +26,20 @@ axis_offset = 0.1
 LENGTH_ALPHA = 0.0
 JOINT_ALPHA = 0.0
 DT=0.005
+# DT=0.001
 
 # TODO: add left+right foot contact points
 
 class Gnoci:
     def __init__(self):
         points = torch.tensor([
-            [-gnoci_width/2, -foot_width/2, 0.0],                               # 0: Left Foot forward
-            [-gnoci_width/2, foot_width/2, 0.0],                                # 1: Left Foot backward
+            [-gnoci_width/2, -foot_stance_length/2, 0.0],                       # 0: Left Foot forward
+            [-gnoci_width/2, foot_stance_length/2, 0.0],                        # 1: Left Foot backward
             [-gnoci_width/2, 0.0, foot_height/2],                               # 2: Left Foot top
-            [gnoci_width/2, -foot_width/2, 0.0],                                # 3: Right Foot forward
-            [gnoci_width/2, foot_width/2, 0.0],                                 # 4: Right Foot backward
+            [gnoci_width/2, -foot_stance_length/2, 0.0],                        # 3: Right Foot forward
+            [gnoci_width/2, foot_stance_length/2, 0.0],                         # 4: Right Foot backward
             [gnoci_width/2, 0.0, foot_height/2],                                # 5: Right Foot top
+
             [-gnoci_width/2, -knee_back_offset, knee_height],                   # 6: Left knee
             [gnoci_width/2, -knee_back_offset, knee_height],                    # 7: Right knee
             [-gnoci_width/2-axis_offset, 0.0, foot_height/2],                   # 8: Left knee_foot joint axis point
@@ -58,10 +61,16 @@ class Gnoci:
             [gnoci_hip_width/2, 0.0, hip_height+0.2],                           # 24: Right yoke joint axis point
             [0.0, -0.1, hip_height+0.2],                                        # 25: body axis point
             [0.0, 0.1, hip_height+0.2],                                         # 26: imu_point
-            [-5.0,-5.0, -0.0],                                                  # 27: Floor point 1
-            [5.0, -5.0, -0.0],                                                  # 28: Floor point 2
-            [-5.0, 5.0, -0.0],                                                  # 29: Floor point 3
-            [5.0, 5.0, -0.0],                                                   # 30: Floor point 4
+
+            [-gnoci_width/2 - foot_width, -foot_stance_length/2, 0.0],          # 27: Left Foot forward
+            [-gnoci_width/2 - foot_width, foot_stance_length/2, 0.0],           # 28: Left Foot backward
+            [gnoci_width/2 + foot_width, -foot_stance_length/2, 0.0],           # 29: Right Foot forward
+            [gnoci_width/2 + foot_width, foot_stance_length/2, 0.0],            # 30: Right Foot backward
+
+            [-5.0,-5.0, -0.0],                                                  # 31: Floor point 1
+            [5.0, -5.0, -0.0],                                                  # 32: Floor point 2
+            [-5.0, 5.0, -0.0],                                                  # 33: Floor point 3
+            [5.0, 5.0, -0.0],                                                   # 34: Floor point 4
         ])
 
         inv_mass=torch.ones(points.shape[0])
@@ -87,6 +96,17 @@ class Gnoci:
 
 
         lengths = [
+            Length(self.state, 0, 27, LENGTH_ALPHA),
+            Length(self.state, 1, 28, LENGTH_ALPHA),
+            Length(self.state, 3, 29, LENGTH_ALPHA),
+            Length(self.state, 4, 30, LENGTH_ALPHA),
+            Length(self.state, 27, 28, LENGTH_ALPHA),
+            Length(self.state, 27, 8, LENGTH_ALPHA),
+            Length(self.state, 28, 8, LENGTH_ALPHA),
+            Length(self.state, 29, 30, LENGTH_ALPHA),
+            Length(self.state, 29, 9, LENGTH_ALPHA),
+            Length(self.state, 30, 9, LENGTH_ALPHA),
+
             Length(self.state, 0, 1, LENGTH_ALPHA),
             Length(self.state, 0, 2, LENGTH_ALPHA),
             Length(self.state, 1, 2, LENGTH_ALPHA),
@@ -152,17 +172,19 @@ class Gnoci:
             Length(self.state, 17, 21, LENGTH_ALPHA),
             Length(self.state, 20, 23, LENGTH_ALPHA), 
             Length(self.state, 21, 24, LENGTH_ALPHA),
+
+            # Length(self.state, 27, 28, LENGTH_ALPHA),
         ]
 
         floor_weld = FacetedWeld(
             self.state,
             [
-                [27, 28, 30, 29],
+                [31, 32, 34, 33],
             ],
             1.0
         )
 
-        floor_contacts = [FloorContact(self.state, i, 0.0, 1.0) for i in range(27)]
+        floor_contacts = [FloorContact(self.state, i, 0.0, 1.0) for i in range(33)]
 
         self.simulator = Simulator(
             state=self.state,
@@ -172,8 +194,8 @@ class Gnoci:
                 *joints,
             ],
             effects=[
-                Inertia([i for i in range(27)]),
-                Gravity([i for i in range(27)], [0.0, 0.0, -9.81])
+                Inertia([i for i in range(33)]),
+                Gravity([i for i in range(33)], [0.0, 0.0, -9.81])
             ],
             num_iter=1,
             dt=DT,
