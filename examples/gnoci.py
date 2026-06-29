@@ -23,9 +23,10 @@ gnoci_yoke_width = 0.4
 axis_offset = 0.1
 
 LENGTH_ALPHA = 0.0
-JOINT_ALPHA = 0.1
-DT=0.01
+JOINT_ALPHA = 0.0
+DT=0.005
 
+# TODO: add left+right foot contact points
 
 class Gnoci:
     def __init__(self):
@@ -56,7 +57,7 @@ class Gnoci:
             [-gnoci_hip_width/2, 0.0, hip_height+0.2],                          # 23: Left yoke joint axis point
             [gnoci_hip_width/2, 0.0, hip_height+0.2],                           # 24: Right yoke joint axis point
             [0.0, -0.1, hip_height+0.2],                                        # 25: body axis point
-            [0.0, 0.0, hip_height+0.2],                                         # 26: imu_point
+            [0.0, 0.1, hip_height+0.2],                                         # 26: imu_point
             [-5.0,-5.0, -0.0],                                                  # 27: Floor point 1
             [5.0, -5.0, -0.0],                                                  # 28: Floor point 2
             [-5.0, 5.0, -0.0],                                                  # 29: Floor point 3
@@ -64,7 +65,7 @@ class Gnoci:
         ])
 
         inv_mass=torch.ones(points.shape[0])
-        inv_mass[[8,9,12,13,16,17,20,21,23,24]] = 1000000000
+        # inv_mass[[8,9,12,13,16,17,20,21,23,24]] = 1000000000
 
         self.state = State(
             points,
@@ -81,7 +82,7 @@ class Gnoci:
             Joint(self.state, [14, 20], 10, 18, JOINT_ALPHA),
             Joint(self.state, [15, 21], 11, 19, JOINT_ALPHA),
             Joint(self.state, [18, 23], 14, 22, JOINT_ALPHA),
-            Joint(self.state, [19, 24], 15, 23, JOINT_ALPHA),
+            Joint(self.state, [19, 24], 15, 22, JOINT_ALPHA),
         ]
 
 
@@ -125,6 +126,32 @@ class Gnoci:
             Length(self.state, 25, 26, LENGTH_ALPHA),
             Length(self.state, 22, 25, LENGTH_ALPHA),
             Length(self.state, 22, 26, LENGTH_ALPHA),
+
+            Length(self.state, 0, 8, LENGTH_ALPHA),
+            Length(self.state, 1, 8, LENGTH_ALPHA),
+            Length(self.state, 3, 9, LENGTH_ALPHA),
+            Length(self.state, 4, 9, LENGTH_ALPHA),
+            Length(self.state, 2, 12, LENGTH_ALPHA),
+            Length(self.state, 5, 13, LENGTH_ALPHA),
+            Length(self.state, 6, 16, LENGTH_ALPHA),
+            Length(self.state, 7, 17, LENGTH_ALPHA),
+            Length(self.state, 10, 20, LENGTH_ALPHA),
+            Length(self.state, 11, 21, LENGTH_ALPHA),
+            Length(self.state, 14, 23, LENGTH_ALPHA),
+            Length(self.state, 15, 24, LENGTH_ALPHA),
+            Length(self.state, 23, 25, LENGTH_ALPHA),
+            Length(self.state, 23, 26, LENGTH_ALPHA),
+            Length(self.state, 24, 25, LENGTH_ALPHA), 
+            Length(self.state, 24, 26, LENGTH_ALPHA),
+
+            Length(self.state, 8, 12, LENGTH_ALPHA), 
+            Length(self.state, 9, 13, LENGTH_ALPHA),
+            Length(self.state, 12, 16, LENGTH_ALPHA), 
+            Length(self.state, 13, 17, LENGTH_ALPHA),
+            Length(self.state, 16, 20, LENGTH_ALPHA), 
+            Length(self.state, 17, 21, LENGTH_ALPHA),
+            Length(self.state, 20, 23, LENGTH_ALPHA), 
+            Length(self.state, 21, 24, LENGTH_ALPHA),
         ]
 
         floor_weld = FacetedWeld(
@@ -148,15 +175,15 @@ class Gnoci:
                 Inertia([i for i in range(27)]),
                 Gravity([i for i in range(27)], [0.0, 0.0, -9.81])
             ],
-            num_iter=2,
+            num_iter=1,
             dt=DT,
-            constraint_optimisation='Jacobi'
+            constraint_optimisation='Gauss-Seidel'
         )
 
         self.renderer = Renderer(
             self.state,
             lengths + [floor_weld] + joints,
-            camera_distance=5,
+            camera_distance=2,
         )
 
     def step(self):

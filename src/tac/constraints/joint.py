@@ -31,7 +31,20 @@ class Joint(Constraint):
 
     def get_residual(self, lam: torch.Tensor):
         C = self.get_theta() - self.theta + self.offset
-        return C + self.a_tilde * lam
+        C = torch.atan2(torch.sin(C), torch.cos(C))
+        r = C + self.a_tilde * lam
+        return r
+
+    @staticmethod
+    def _theta_of(p, q, c_from, c_to):
+        """Hinge angle of from/to about the p->q axis. Differentiable in all four
+        point positions (p, q, c_from, c_to each (..., 3))."""
+        n = _normalize(q - p)
+        u = _perp(c_from - p, n)
+        v = _perp(c_to - p, n)
+        cross = (n * torch.linalg.cross(u, v)).sum(-1, keepdim=True)
+        dot = (u * v).sum(-1, keepdim=True)
+        return torch.atan2(cross, dot)   # (..., 1)
 
     def _compute_joint_state(self, state: State) -> torch.Tensor:
         x = state.x_current
@@ -51,40 +64,32 @@ class Joint(Constraint):
         if offset is not None:
             self.offset = offset
 
-        w = self.state.inv_mass     # (B, N) inverse masses
-        x = self.state.x_current    # (B, N, 3)
-        current_theta, u, v, n = self._compute_joint_state(self.state)
-        C = current_theta - self.theta + self.offset
-        # C is an angle: wrap to (-pi, pi] so the constraint always takes the
-        # shortest way round. Without this, crossing the atan2 branch cut (e.g.
-        # a straight-bar rest pose sits at +/-pi) makes C jump by ~2*pi and the
-        # solver violently "corrects" a spurious full turn.
-        C = torch.atan2(torch.sin(C), torch.cos(C))
-        g_from = -torch.linalg.cross(n, u) / (u * u).sum(-1, keepdim=True).clamp_min(_EPS)  # (B, 3)
-        g_to   =  torch.linalg.cross(n, v) / (v * v).sum(-1, keepdim=True).clamp_min(_EPS)  # (B, 3)
+        # order: [axis0, axis1, from, to] — all four points the angle depends on
+        idx = [self.axis_points[0], self.axis_points[1], self.from_point, self.to_point]
+        x = self.state.x_current        # (B, N, 3)
+        w = self.state.inv_mass[:, idx]  # (B, 4) inverse masses
 
-        gf2 = (g_from * g_from).sum(-1, keepdim=True)   # |g_from|² (B, 1)
-        gt2 = (g_to   * g_to).sum(-1, keepdim=True)
-        w_from = w[:, [self.from_point]]   # (B, 1)
-        w_to   = w[:, [self.to_point]]     # (B, 1)
-        w_sum = w_from * gf2 + w_to * gt2  # (B, 1)
+        # True constraint gradient: dtheta/dx_i for every participating point, via
+        # autograd. theta is invariant to translating the four points together, so
+        # sum_i dtheta/dx_i == 0 exactly -> linear momentum is conserved with no
+        # manual reaction, and (being a genuine gradient) the projection is
+        # conservative: it injects no spurious energy. This replaces the old
+        # lever-arm gradients + hand-rolled axis reaction, which were not the
+        # gradient of any scalar and pumped energy whenever the mechanism moved.
+        pts = x[:, idx].detach().requires_grad_(True)        # (B, 4, 3)
+        theta = self._theta_of(pts[:, 0], pts[:, 1], pts[:, 2], pts[:, 3])  # (B, 1)
+        (grad,) = torch.autograd.grad(theta.sum(), pts)      # (B, 4, 3)
 
-        residual = C + self.a_tilde * lam
-        d_lambda = - residual / (w_sum + self.a_tilde).clamp_min(_EPS)  # (B, 1)
+        C = theta.detach() - self.theta + self.offset
+        # wrap to (-pi, pi] so we always take the shortest way round the atan2 cut.
+        C = torch.atan2(torch.sin(C), torch.cos(C))          # (B, 1)
 
-        from_update = w_from * g_from * d_lambda   # (B, 3)
-        to_update   = w_to   * g_to   * d_lambda   # (B, 3)
+        g2 = (grad * grad).sum(-1)                           # (B, 4) |grad_i|²
+        w_sum = (w * g2).sum(-1, keepdim=True)               # (B, 1)
+        d_lambda = - (C + self.a_tilde * lam) / (w_sum + self.a_tilde).clamp_min(_EPS)  # (B, 1)
 
-        # The reaction is split across the two axis points so the net displacement
-        # over the four points is zero (an internal constraint must not translate
-        # the system). Without the /2 each axis point takes the full reaction and
-        # the joint injects spurious momentum.
-        sum_update = (from_update + to_update) / 2   # (B, 3)
-
-        x[:, self.from_point] += from_update
-        x[:, self.to_point]   += to_update
-        x[:, self.axis_points] += -sum_update[:, None, :]
-
+        # XPBD update: dx_i = w_i * grad_i * d_lambda
+        x[:, idx] += w[..., None] * grad * d_lambda[:, None]  # (B, 4, 3)
         return lam + d_lambda
 
     def _get_points(self):
@@ -179,7 +184,9 @@ class VectorizedJoint(Constraint):
 
     def get_residual(self, lam: torch.Tensor):
         C = self.get_theta() - self.theta + self.offset
-        return C + self.a_tilde * lam
+        C = torch.atan2(torch.sin(C), torch.cos(C))
+        r = C + self.a_tilde * lam
+        return r
 
     def _apply(self, lam, dt, **kwargs):
         assert lam.shape == (self.state.batch_size, len(self.from_idx), 1), \
@@ -188,39 +195,39 @@ class VectorizedJoint(Constraint):
         if offset is not None:
             self.offset = offset   # broadcastable to (B, m, 1)
 
+        x = self.state.x_current    # (B, N, 3)
         w = self.state.inv_mass     # (B, N)
-        current_theta, u, v, n = self._compute_joint_state(self.state)   # theta (B,m,1), u/v/n (B,m,3)
-        C = current_theta - self.theta + self.offset                     # (B, m, 1)
-        # wrap to (-pi, pi] so the constraint always takes the shortest way round
-        # (see Joint.apply for why the atan2 branch cut would otherwise spin it).
+
+        # True constraint gradient per joint via autograd (see Joint._apply). theta
+        # is translation-invariant in its four points, so sum_i dtheta/dx_i == 0 ->
+        # momentum-conserving and conservative (no energy injection). Gather the four
+        # points of every joint as one leaf: pts (B, m, 4, 3) = [axis0, axis1, from, to].
+        pts = torch.stack([
+            x[:, self.axis0_idx], x[:, self.axis1_idx],
+            x[:, self.from_idx],  x[:, self.to_idx],
+        ], dim=2).detach().requires_grad_(True)              # (B, m, 4, 3)
+        theta = Joint._theta_of(pts[:, :, 0], pts[:, :, 1], pts[:, :, 2], pts[:, :, 3])  # (B, m, 1)
+        (grad,) = torch.autograd.grad(theta.sum(), pts)      # (B, m, 4, 3)
+
+        C = theta.detach() - self.theta + self.offset        # (B, m, 1)
+        # wrap to (-pi, pi] so we always take the shortest way round the atan2 cut.
         C = torch.atan2(torch.sin(C), torch.cos(C))
-        g_from = -torch.linalg.cross(n, u) / (u * u).sum(-1, keepdim=True).clamp_min(_EPS)  # (B, m, 3)
-        g_to   =  torch.linalg.cross(n, v) / (v * v).sum(-1, keepdim=True).clamp_min(_EPS)  # (B, m, 3)
 
-        gf2 = (g_from * g_from).sum(-1, keepdim=True)   # |g_from|² (B, m, 1)
-        gt2 = (g_to   * g_to).sum(-1, keepdim=True)
-        w_from = w[:, self.from_idx, None]   # (B, m, 1)
-        w_to   = w[:, self.to_idx, None]     # (B, m, 1)
-        w_sum = w_from * gf2 + w_to * gt2    # (B, m, 1)
+        w4 = torch.stack([
+            w[:, self.axis0_idx], w[:, self.axis1_idx],
+            w[:, self.from_idx],  w[:, self.to_idx],
+        ], dim=2)                                            # (B, m, 4) inverse masses
+        g2 = (grad * grad).sum(-1)                           # (B, m, 4) |grad_i|²
+        w_sum = (w4 * g2).sum(-1, keepdim=True)              # (B, m, 1)
+        d_lambda = - (C + self.a_tilde * lam) / (w_sum + self.a_tilde).clamp_min(_EPS)  # (B, m, 1)
 
-        residual = C + self.a_tilde * lam
-        d_lambda = - residual / (w_sum + self.a_tilde).clamp_min(_EPS)  # (B, m, 1)
-
-        from_update = w_from * g_from * d_lambda   # (B, m, 3)
-        to_update   = w_to   * g_to   * d_lambda   # (B, m, 3)
-        # reaction split across the two axis points -> zero net displacement per
-        # joint (see Joint.apply); otherwise each axis point takes the full reaction
-        # and the joint injects spurious momentum.
-        sum_update  = (from_update + to_update) / 2   # (B, m, 3)
-
-        # index_add_ accumulates duplicate indices (joints may share points); the
-        # reaction -sum_update is applied to both axis points, as in Joint.apply.
+        # dx_i = w_i * grad_i * d_lambda; index_add_ accumulates shared points and
         # *_scale applies the per-point valence under-relaxation (averaged Jacobi).
-        xc = self.state.x_current
-        xc.index_add_(1, self.from_t,  from_update * self.from_scale)
-        xc.index_add_(1, self.to_t,    to_update * self.to_scale)
-        xc.index_add_(1, self.axis0_t, -sum_update * self.axis0_scale)
-        xc.index_add_(1, self.axis1_t, -sum_update * self.axis1_scale)
+        upd = w4[..., None] * grad * d_lambda[:, :, None]    # (B, m, 4, 3)
+        x.index_add_(1, self.axis0_t, upd[:, :, 0] * self.axis0_scale)
+        x.index_add_(1, self.axis1_t, upd[:, :, 1] * self.axis1_scale)
+        x.index_add_(1, self.from_t,  upd[:, :, 2] * self.from_scale)
+        x.index_add_(1, self.to_t,    upd[:, :, 3] * self.to_scale)
 
         return lam + d_lambda
     
