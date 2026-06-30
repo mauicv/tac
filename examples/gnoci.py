@@ -26,7 +26,7 @@ axis_offset = 0.1
 
 LENGTH_ALPHA = 0.0
 JOINT_ALPHA = 0.0
-DT=0.008
+DT=0.001
 
 
 class Gnoci:
@@ -222,6 +222,7 @@ class Gnoci:
             num_iter=1,
             dt=DT,
             constraint_optimisation='Gauss-Seidel'
+            # constraint_optimisation='Jacobi'
         )
 
         self.renderer = Renderer(
@@ -231,18 +232,39 @@ class Gnoci:
         )
 
     def step(self):
-        for _ in range(5):
+        for _ in range(10):
             self.state = self.simulator.step(self.state)
         self.renderer.update(self.state)
 
     def close(self):
         self.renderer.close()
 
+    def get_residuals(self):
+        residuals = []
+        for i, constraint in enumerate(self.simulator.constraints):
+            residuals.extend(constraint.get_residual(self.simulator.lambdas[i]).flatten().tolist())
+        return residuals
+
+    def get_residual_names(self):
+        i = 0
+        names = []
+        for constraint in self.simulator.constraints:
+            for _ in range(constraint.shape[0]):
+                names.append(f'{constraint.__class__.__name__}_{i}')
+                i += 1
+        return names
 
 if __name__ == "__main__":
     gnoci = Gnoci()
-    while True:
+    times = []
+    for i in range(1000):
+        start = time.perf_counter()
         gnoci.step()
-    gnoci.close()
+        end = time.perf_counter()
+        times.append(end - start)
 
+    print(f"Average Time taken: {np.mean(times)}")
+    print("time ratio: ", (DT * 25)/np.mean(times))
+    print(f"Time per step: {np.mean(times) / 25}")
+    gnoci.close()
 

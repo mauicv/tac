@@ -57,8 +57,9 @@ class Simulator:
 
         for _ in range(self.num_iter):
             for ind, (lambda_val, constraint) in enumerate(zip(self.lambdas, self.constraints)):
-                with self.perf_rec(f"constraint_apply_{constraint.__class__.__name__}", constraint, lambda_val):
-                    lambda_val = constraint.apply(lambda_val, self.dt, **measurements)
+                # with self.perf_rec(f"constraint_apply_{constraint.__class__.__name__}", constraint, lambda_val):
+                lambda_val = constraint.apply(lambda_val, self.dt, **measurements)
+                self.lambdas[ind] = lambda_val
         return state
 
     def effect_step(
@@ -66,8 +67,8 @@ class Simulator:
             state: State,
         ):
         for effect in self.effects:
-            with self.perf_rec(f"effect_apply_{effect.__class__.__name__}", effect, None):
-                state = effect.apply(state, self.dt)
+            # with self.perf_rec(f"effect_apply_{effect.__class__.__name__}", effect, None):
+            state = effect.apply(state, self.dt)
         return state
 
     def step(
@@ -77,6 +78,6 @@ class Simulator:
         ):
         state = self.effect_step(state=state)
         state = self.constraint_step(state=state, measurements=measurements)
-        if self.verbose:
-            self.perf_rec.print_stats()
+        # if self.verbose:
+        #     self.perf_rec.print_stats()
         return state

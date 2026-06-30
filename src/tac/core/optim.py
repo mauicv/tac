@@ -94,8 +94,9 @@ class ConstraintPointCover:
             self.constraint_sets[ind]['points'].update(constraint_points)
 
     def pprint(self):
-        print(f"Constraint Point Cover: {self.constraint_sets[0]["constraints"][0].__class__.__name__}")
-        for cs in self.constraint_sets:
-            print(f"Constraints: {len(cs['constraints'])}")
-            print(f"Points: {cs['points']}")
-            print("-" * 10)
+        pass
+        # print(f"Constraint Point Cover: {self.constraint_sets[0]["constraints"][0].__class__.__name__}")
+        # for cs in self.constraint_sets:
+        #     print(f"Constraints: {len(cs['constraints'])}")
+        #     print(f"Points: {cs['points']}")
+        #     print("-" * 10)

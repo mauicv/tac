@@ -9,7 +9,7 @@ import random
 import torch
 
 
-DT = 0.01
+DT = 0.004
 alpha = 0.000
 
 class Box:
@@ -68,10 +68,10 @@ class Box:
                 Inertia([0, 1, 2, 3, 4, 5, 6, 7]),
                 Gravity([0, 1, 2, 3, 4, 5, 6, 7], [0.0, 0.0, -9.81])
             ],
-            num_iter=2,
+            num_iter=1,
             dt=DT,
-            # constraint_optimisation='Gauss-Seidel'
-            constraint_optimisation='Jacobi'
+            constraint_optimisation='Gauss-Seidel'
+            # constraint_optimisation='Jacobi'
         )
 
         self.renderer = Renderer(self.state, [cube_weld, floor_weld])
