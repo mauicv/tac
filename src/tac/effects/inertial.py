@@ -4,12 +4,13 @@ import torch
 
 
 class Inertia:
-    def __init__(self, points: List[int]):
+    def __init__(self, points: List[int], friction: float = 0.0):
         self.points = points
+        self.friction = friction
 
     def apply(self, state: State, dt: float):
         v = state.x_current[:, self.points] - state.x_previous[:, self.points]
-        new_x = state.x_current[:, self.points] + v
+        new_x = state.x_current[:, self.points] + v - self.friction * v * dt
         state.x_previous[:, self.points] = state.x_current[:, self.points].clone()  # old current becomes previous
         state.x_current[:, self.points] = new_x
         return state

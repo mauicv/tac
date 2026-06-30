@@ -5,6 +5,7 @@ from tac.core.sim import Simulator
 from tac.constraints.length import Length
 from tac.constraints.joint import Joint
 from tac.constraints.contact import FloorContact
+from tac.constraints.planar import Planar, VectorizedPlanar
 from tac.constraints.weld import FacetedWeld
 from tac.viz.renderer import Renderer
 from tac.effects.inertial import Inertia, Gravity
@@ -25,10 +26,8 @@ axis_offset = 0.1
 
 LENGTH_ALPHA = 0.0
 JOINT_ALPHA = 0.0
-DT=0.005
-# DT=0.001
+DT=0.008
 
-# TODO: add left+right foot contact points
 
 class Gnoci:
     def __init__(self):
@@ -60,42 +59,66 @@ class Gnoci:
             [-gnoci_hip_width/2, 0.0, hip_height+0.2],                          # 23: Left yoke joint axis point
             [gnoci_hip_width/2, 0.0, hip_height+0.2],                           # 24: Right yoke joint axis point
             [0.0, -0.1, hip_height+0.2],                                        # 25: body axis point
-            [0.0, 0.1, hip_height+0.2],                                         # 26: imu_point
+            [0.0, 0.1, hip_height+0.2],                                         # 26: back axis point
 
             [-gnoci_width/2 - foot_width, -foot_stance_length/2, 0.0],          # 27: Left Foot forward
             [-gnoci_width/2 - foot_width, foot_stance_length/2, 0.0],           # 28: Left Foot backward
             [gnoci_width/2 + foot_width, -foot_stance_length/2, 0.0],           # 29: Right Foot forward
             [gnoci_width/2 + foot_width, foot_stance_length/2, 0.0],            # 30: Right Foot backward
 
-            [-5.0,-5.0, -0.0],                                                  # 31: Floor point 1
-            [5.0, -5.0, -0.0],                                                  # 32: Floor point 2
-            [-5.0, 5.0, -0.0],                                                  # 33: Floor point 3
-            [5.0, 5.0, -0.0],                                                   # 34: Floor point 4
+            [0.0, 0.0, hip_height+0.3],                                         # 31: imu_point
+
+            [-5.0,-5.0, -0.0],                                                  # 32: Floor point 1
+            [5.0, -5.0, -0.0],                                                  # 33: Floor point 2
+            [-5.0, 5.0, -0.0],                                                  # 34: Floor point 3
+            [5.0, 5.0, -0.0],                                                   # 35: Floor point 4
         ])
 
         inv_mass=torch.ones(points.shape[0])
-        # inv_mass[[8,9,12,13,16,17,20,21,23,24]] = 1000000000
 
         self.state = State(
             points,
             inv_mass=torch.ones(points.shape[0]),
         )
 
+        planars = [
+            Planar(self.state, [2, 8, 12, 6], 0.0),
+            Planar(self.state, [5, 9, 13, 7], 0.0),
+
+            Planar(self.state, [6, 12, 10, 16], 0.0),
+            Planar(self.state, [7, 13, 11, 17], 0.0),
+        ]
+
         joints = [
             Joint(self.state, [2, 8], 0, 6, JOINT_ALPHA),
+            Joint(self.state, [2, 8], 27, 12, JOINT_ALPHA),
             Joint(self.state, [5, 9], 3, 7, JOINT_ALPHA),
+            Joint(self.state, [5, 9], 29, 13, JOINT_ALPHA),
             Joint(self.state, [6, 12], 2, 10, JOINT_ALPHA),
+            Joint(self.state, [6, 12], 8, 16, JOINT_ALPHA),
             Joint(self.state, [7, 13], 5, 11, JOINT_ALPHA),
+            Joint(self.state, [7, 13], 9, 17, JOINT_ALPHA),
             Joint(self.state, [10, 16], 6, 14, JOINT_ALPHA),
+            Joint(self.state, [10, 16], 12, 20, JOINT_ALPHA),
             Joint(self.state, [11, 17], 7, 15, JOINT_ALPHA),
+            Joint(self.state, [11, 17], 13, 21, JOINT_ALPHA),
             Joint(self.state, [14, 20], 10, 18, JOINT_ALPHA),
+            Joint(self.state, [14, 20], 16, 23, JOINT_ALPHA),
             Joint(self.state, [15, 21], 11, 19, JOINT_ALPHA),
+            Joint(self.state, [15, 21], 17, 24, JOINT_ALPHA),
             Joint(self.state, [18, 23], 14, 22, JOINT_ALPHA),
+            Joint(self.state, [18, 23], 20, 31, JOINT_ALPHA),
             Joint(self.state, [19, 24], 15, 22, JOINT_ALPHA),
+            Joint(self.state, [19, 24], 21, 31, JOINT_ALPHA),
         ]
 
 
         lengths = [
+            Length(self.state, 25, 31, LENGTH_ALPHA),
+            Length(self.state, 26, 31, LENGTH_ALPHA),
+            Length(self.state, 22, 31, LENGTH_ALPHA),
+            Length(self.state, 23, 31, LENGTH_ALPHA),
+            Length(self.state, 24, 31, LENGTH_ALPHA),
             Length(self.state, 0, 27, LENGTH_ALPHA),
             Length(self.state, 1, 28, LENGTH_ALPHA),
             Length(self.state, 3, 29, LENGTH_ALPHA),
@@ -106,7 +129,6 @@ class Gnoci:
             Length(self.state, 29, 30, LENGTH_ALPHA),
             Length(self.state, 29, 9, LENGTH_ALPHA),
             Length(self.state, 30, 9, LENGTH_ALPHA),
-
             Length(self.state, 0, 1, LENGTH_ALPHA),
             Length(self.state, 0, 2, LENGTH_ALPHA),
             Length(self.state, 1, 2, LENGTH_ALPHA),
@@ -173,13 +195,12 @@ class Gnoci:
             Length(self.state, 20, 23, LENGTH_ALPHA), 
             Length(self.state, 21, 24, LENGTH_ALPHA),
 
-            # Length(self.state, 27, 28, LENGTH_ALPHA),
         ]
 
         floor_weld = FacetedWeld(
             self.state,
             [
-                [31, 32, 34, 33],
+                [32, 33, 35, 34],
             ],
             1.0
         )
@@ -192,9 +213,10 @@ class Gnoci:
                 *lengths,
                 *floor_contacts,
                 *joints,
+                *planars,
             ],
             effects=[
-                Inertia([i for i in range(33)]),
+                Inertia([i for i in range(33)], 0.0),
                 Gravity([i for i in range(33)], [0.0, 0.0, -9.81])
             ],
             num_iter=1,
@@ -204,7 +226,7 @@ class Gnoci:
 
         self.renderer = Renderer(
             self.state,
-            lengths + [floor_weld] + joints,
+            lengths + joints + planars,
             camera_distance=2,
         )
 

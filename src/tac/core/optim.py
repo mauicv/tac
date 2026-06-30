@@ -63,6 +63,7 @@ def _gauss_seidel_optimise(state: State, constraints: List[Constraint], alphas, 
         if len(cs['alphas']) > 0:
             alpha = cs['alphas'][0]
             optimized_constraints.append(cls.from_constraints(state, cs['constraints'], alpha))
+    cover.pprint()
     return optimized_constraints
 
 
@@ -91,4 +92,10 @@ class ConstraintPointCover:
             self.constraint_sets[ind]['constraints'].append(constraint)
             self.constraint_sets[ind]['alphas'].append(alpha)
             self.constraint_sets[ind]['points'].update(constraint_points)
-    
+
+    def pprint(self):
+        print(f"Constraint Point Cover: {self.constraint_sets[0]["constraints"][0].__class__.__name__}")
+        for cs in self.constraint_sets:
+            print(f"Constraints: {len(cs['constraints'])}")
+            print(f"Points: {cs['points']}")
+            print("-" * 10)

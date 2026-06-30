@@ -1,6 +1,7 @@
 from typing import List, Union
 from tac.constraints.length import Length
 from tac.constraints.weld import FacetedWeld
+from tac.constraints.planar import Planar
 from tac.constraints.joint import Joint
 import pyvista as pv
 from tac.core.state import State
@@ -48,6 +49,13 @@ def state_2_points(state: State):
     return state.x_current[0].to('cpu').numpy()
 
 
+def planar_2_cells(planar: Planar):
+    cells = []
+    cells.append(len(planar.point_idx))
+    cells.extend(planar.point_idx)
+    return cells
+
+
 class Renderer:
     def __init__(
             self,
@@ -72,6 +80,8 @@ class Renderer:
             elif isinstance(visable_constraint, Joint):
                 # joints aren't faces/lines on the point mesh — drawn as arrow glyphs
                 self.joints.append(visable_constraint)
+            elif isinstance(visable_constraint, Planar):
+                face_cells.extend(planar_2_cells(visable_constraint))
 
         self.mesh = pv.PolyData(
             points,
@@ -82,14 +92,14 @@ class Renderer:
             self.mesh,
             line_width=5,
             show_edges=True,
-            color='red',
-            style='wireframe'
+            color='gray',
+            # style='wireframe'
         )
 
         # joints are rendered as arrow glyphs (axis + two lever arms), one actor per
         # joint so each gets its own colour; refreshed each frame in update() since
         # the geometry moves with the points.
-        self.arrow_length = 0.2
+        self.arrow_length = 0.1
         self.joint_actors = []
         for i, joint in enumerate(self.joints):
             color = JOINT_COLORS[i % len(JOINT_COLORS)]
