@@ -12,8 +12,8 @@ class State:
         assert len(self.x_current.shape) == 3
         assert len(self.x_previous.shape) == 3
         assert len(self.inv_mass.shape) == 2
-        assert self.x_current.shape[1] == self.x_previous.shape[1] == self.inv_mass.shape[1]
-        assert self.x_current.shape[0] == self.x_previous.shape[0] == self.inv_mass.shape[0]
+        assert self.x_current.shape[1] == self.x_previous.shape[1] == self.inv_mass.shape[1], f"x_current.shape: {self.x_current.shape}, x_previous.shape: {self.x_previous.shape}, inv_mass.shape: {self.inv_mass.shape}"
+        assert self.x_current.shape[0] == self.x_previous.shape[0] == self.inv_mass.shape[0], f"x_current.shape: {self.x_current.shape}, x_previous.shape: {self.x_previous.shape}, inv_mass.shape: {self.inv_mass.shape}"
 
     @classmethod
     def create(cls, x_current, inv_mass):

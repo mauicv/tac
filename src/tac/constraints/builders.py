@@ -90,3 +90,25 @@ class JointBuilder(ConstraintBuilder):
 
         super().__init__(C, rest=target, name='joint', angular_wrap=True)
 
+
+class PlanarBuilder(ConstraintBuilder):
+    # Holds a group of points coplanar. C == 0 when coplanar; rest defaults to
+    # the build-time value (~0 for a face built flat).
+    def __init__(self):
+
+        def C(points: jnp.ndarray) -> jnp.ndarray:                          # (B, n, k, 3) -> (B, n)
+            k = points.shape[-2]
+            if k == 4:
+                a = points[..., 0, :]
+                b = points[..., 1, :]
+                c = points[..., 2, :]
+                d = points[..., 3, :]
+                # signed volume of the tetra (scalar triple product); 0 iff coplanar
+                return ((b - a) * jnp.cross(c - a, d - a)).sum(-1)          # (B, n)
+            # k != 4: smallest eigenvalue of the point covariance = variance out
+            # of the best-fit plane; 0 iff coplanar.
+            centred = points - points.mean(-2, keepdims=True)              # (B, n, k, 3)
+            cov = jnp.einsum("...ki,...kj->...ij", centred, centred)       # (B, n, 3, 3)
+            return jnp.linalg.eigvalsh(cov)[..., 0]                         # (B, n)
+
+        super().__init__(C, name='planar')
