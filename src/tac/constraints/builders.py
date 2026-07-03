@@ -58,7 +58,7 @@ class FloorContactBuilder(ConstraintBuilder):
     def __init__(self, floor_height: float):
 
         def C(points: jnp.ndarray) -> jnp.ndarray:
-            return jnp.maximum(0.0, points[0][2] - floor_height)
+            return jnp.maximum(0.0, points[..., 2] - floor_height)
 
         super().__init__(C)
 

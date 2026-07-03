@@ -4,11 +4,12 @@ from tac.core.sim import Simulator
 from tac.effects.inertial import Inertia, Gravity
 import random
 import jax.numpy as jnp
-# from tac.viz.renderer import Renderer
+from tac.viz.renderer import Renderer
+import time
+import jax
 
-
-DT = 0.004
-alpha = 0.000
+DT = 0.04
+alpha = 0.0
 
 
 def build_env():
@@ -37,56 +38,56 @@ def build_env():
         inv_mass=inv_mass[None],
     )
 
-    length_constraints = (
-        LengthBuilder()
-            .add_constraint([0, 1], alpha)
-            .add_constraint([1, 2], alpha)
-            .add_constraint([2, 3], alpha)
-            .add_constraint([3, 0], alpha)
-            .add_constraint([4, 5], alpha)
-            .add_constraint([5, 6], alpha)
-            .add_constraint([6, 7], alpha)
-            .add_constraint([7, 4], alpha)
-            .add_constraint([0, 4], alpha)
-            .add_constraint([1, 5], alpha)
-            .add_constraint([2, 6], alpha)
-            .add_constraint([3, 7], alpha)
-            .build(state)
-        )
 
-    # floor_contact_constraints = (
-    #     FloorContactBuilder(-1.0)
-    #         .add_constraint([8, 9, 11, 10], alpha)
-    #         .build(state)
-    #     )
+    lb = LengthBuilder()
+    for i in range(8):
+        for j in range(i+1, 8):
+            lb.add_constraint([i, j], alpha)
+
+    length_constraints = lb.build(state)
 
     simulator = Simulator(
         constraints=[
-            *length_constraints
+            *length_constraints,
         ],
         effects=[
             Inertia(
                 jnp.array([0, 1, 2, 3, 4, 5, 6, 7]),
                 friction=jnp.array([0.0])
             ),
-            Gravity(
-                jnp.array([0, 1, 2, 3, 4, 5, 6, 7]), 
-                jnp.array([0.0, 0.0, -9.81])
-            )
+            # Gravity(
+            #     jnp.array([0, 1, 2, 3, 4, 5, 6, 7]), 
+            #     jnp.array([0.0, 0.0, -9.81])
+            # )
         ],
         num_iter=1,
         dt=DT,
     )
 
-    # renderer = Renderer(state, [length_constraints, floor_contact_constraints])
-    return state, simulator
+    lines = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]]
+    # faces = [[8, 9, 11, 10]]
+    faces = []
+
+    renderer = Renderer(state, lines, faces)
+
+    @jax.jit
+    def step_fn(state):
+        for _ in range(10):
+            state = simulator.step(state)
+        return state
+
+    return state, step_fn, renderer
 
 
 
 if __name__ == "__main__":
-    state, simulator = build_env()
-    state = simulator.step(state)
+    state, step_fn, renderer = build_env()
+    state = state.update_x(jnp.array([0]), jnp.array([[0.1, 0.0, 0.0]]))
+
+    for _ in range(1000):
+        start_time = time.perf_counter()
+        state = step_fn(state)
+        end_time = time.perf_counter()
+        print(f'Step time: {end_time - start_time} seconds')
+        renderer.update(state)
     
-    # for _ in range(300):
-    #     box.step()
-    # box.close()

@@ -6,6 +6,9 @@ from tac.core.state import State
 from typing import Callable
 
 
+# from tac.util.log_recorder import recorder
+
+
 @struct.dataclass
 class AutogradConstraint():
     idx: jnp.ndarray
@@ -56,8 +59,8 @@ class AutogradConstraint():
         x, w = state._get_x_w(self.idx)                                             # (B, N, k, 3), (B, N, k, 1)
         C = self.C(x) - self.rest                                                   # (B, m, 1)
         grad = self.grad_C(x)                                                       # (B, m, k, 3)
-        g2 = (grad * grad).sum(-1)[..., None]                                       # (B, m, k)
-        w_sum = (w * g2).sum(-1)                                                    # (B, m, 1)
+        g2 = (grad * grad).sum(-1)[..., None]                                       # (B, m, k, 1)
+        w_sum = (w * g2).sum(-2)                                                    # (B, m, 1)
         residual = - (C[..., None] + _alpha * lam)                                  
         denom = jnp.clip(w_sum + _alpha, a_min=1e-6)
         d_lambda = residual / denom                                                 # (B, m, 1)

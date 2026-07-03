@@ -14,11 +14,11 @@ class Inertia:
 
     def apply(self, state: State, dt: float):
         idx = self.points
-        x_curr = state.x_current[idx]
-        x_prev = state.x_previous[idx]
+        x_curr = state.x_current[:, idx]                # (B, len(idx), 3)
+        x_prev = state.x_previous[:, idx]               # (B, len(idx), 3)
         v = x_curr - x_prev
         v = v - self.friction * v * dt
-        new_x_current = state.x_current.at[idx].add(v)
+        new_x_current = state.x_current.at[:, idx].add(v)
         return state.replace(
             x_previous=state.x_current,
             x_current=new_x_current
@@ -35,10 +35,10 @@ class Gravity:
 
     def apply(self, state: State, dt: float):
         idx = self.points
-        x_curr = state.x_current[idx]
-        update = self.gravity * dt * dt
-        new_x_current = state.x_current.at[idx].add(update)
+        update = self.gravity * dt * dt                 # (3,)
+        new_x_current = state.x_current.at[:, idx].add(update)
+        # NB: gravity only adds to x_current; x_previous is advanced once by
+        # Inertia so the Verlet velocity (x_current - x_previous) accumulates.
         return state.replace(
-            x_previous=state.x_current,
             x_current=new_x_current
         )

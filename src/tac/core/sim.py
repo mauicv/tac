@@ -27,7 +27,6 @@ class Simulator:
         for _ in range(self.num_iter):
             new_lambdas = []
             for lambda_val, constraint in zip(lambdas, self.constraints):
-                print(state.x_current[0])
                 # with self.perf_rec(f"constraint_apply_{constraint.__class__.__name__}", constraint, lambda_val):
                 state, lambda_val = constraint.apply(state, lambda_val, self.dt)
                 new_lambdas.append(lambda_val)
