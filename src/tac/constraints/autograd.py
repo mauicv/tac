@@ -27,7 +27,8 @@ class AutogradConstraint():
             state: State,
             points: jnp.ndarray,
             alpha: jnp.ndarray,
-            C: Callable
+            C: Callable,
+            rest: jnp.ndarray = None,
         ):
         N = state.x_current.shape[1]
         points = jnp.asarray(points, dtype=jnp.int32)
@@ -38,8 +39,14 @@ class AutogradConstraint():
         scale = (1.0 / counts[idx]).reshape(n, k, 1)
         lambda_shape = (n, 1)
         offset = jnp.zeros((n, k, 1))
-        x = state.x_current[:, idx].reshape(-1, n, k, 3)
-        rest = C(x)[0]
+        # rest defaults to the constraint value in the current state (bilateral
+        # constraints hold their build-time value); pass rest explicitly for an
+        # absolute target, e.g. floor contact wants rest=0, not the initial height.
+        if rest is None:
+            x = state.x_current[:, idx].reshape(-1, n, k, 3)
+            rest = C(x)[0]
+        else:
+            rest = jnp.asarray(rest, dtype=jnp.float32)
         grad_C = jax.grad(lambda x: C(x).sum())
 
         return cls(

@@ -5,8 +5,9 @@ import jax.numpy as jnp
 
 
 class ConstraintBuilder:
-    def __init__(self, C: Callable):
+    def __init__(self, C: Callable, rest=None):
         self.C = C
+        self.rest = rest
         self.constraint_sets = [{
             'points': [],
             'alphas': [],
@@ -38,7 +39,7 @@ class ConstraintBuilder:
     def build(self, state: State) -> List[AutogradConstraint]:
         constraints = []
         for cs in self.constraint_sets:
-            constraint = AutogradConstraint.create(state, cs['points'], cs['alphas'], self.C)
+            constraint = AutogradConstraint.create(state, cs['points'], cs['alphas'], self.C, rest=self.rest)
             constraints.append(constraint)
         return constraints
 
@@ -48,8 +49,7 @@ class LengthBuilder(ConstraintBuilder):
     def __init__(self):
 
         def C(points: jnp.ndarray) -> jnp.ndarray:
-            d = jnp.linalg.norm(points[..., 0, :] - points[..., 1, :], axis=-1)
-            return d
+            return jnp.linalg.norm(points[..., 0, :] - points[..., 1, :], axis=-1)
 
         super().__init__(C)
 
@@ -58,7 +58,7 @@ class FloorContactBuilder(ConstraintBuilder):
     def __init__(self, floor_height: float):
 
         def C(points: jnp.ndarray) -> jnp.ndarray:
-            return jnp.maximum(0.0, points[..., 2] - floor_height)
+            return jnp.minimum(0.0, points[..., 0, 2] - floor_height)      # (B, n)
 
-        super().__init__(C)
+        super().__init__(C, rest=0.0)
 
