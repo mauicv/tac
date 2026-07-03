@@ -1,5 +1,6 @@
 from tac.core.state import State
-from tac.constraints.builders import FloorContactBuilder, LengthBuilder
+from tac.constraints.builders import LengthBuilder
+from tac.constraints.hard_floor import HardFloorConstraint
 from tac.core.sim import Simulator
 from tac.effects.inertial import Inertia, Gravity
 import random
@@ -44,23 +45,14 @@ def build_env():
         for j in range(i+1, 8):
             lb.add_constraint([i, j], alpha)
 
-    fc = FloorContactBuilder(-1.0)
-    fc.add_constraint([0], alpha)
-    fc.add_constraint([1], alpha)
-    fc.add_constraint([2], alpha)
-    fc.add_constraint([3], alpha)
-    fc.add_constraint([4], alpha)
-    fc.add_constraint([5], alpha)
-    fc.add_constraint([6], alpha)
-    fc.add_constraint([7], alpha)
-    floor_contact_constraints = fc.build(state)
+    hard_floor_constraint = HardFloorConstraint.create(points=[0, 1, 2, 3, 4, 5, 6, 7], floor_z=-1.0)
 
     length_constraints = lb.build(state)
 
     simulator = Simulator(
         constraints=[
             *length_constraints,
-            *floor_contact_constraints,
+            hard_floor_constraint,
         ],
         effects=[
             Inertia(
@@ -96,9 +88,6 @@ if __name__ == "__main__":
     state = state.update_x(jnp.array([0]), jnp.array([[0.01, 0.03, 0.1]]))
 
     for _ in range(1000):
-        start_time = time.perf_counter()
         state = step_fn(state)
-        end_time = time.perf_counter()
-        print(f'Step time: {end_time - start_time} seconds')
         renderer.update(state)
     

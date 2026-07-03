@@ -20,6 +20,8 @@ class AutogradConstraint():
     lambda_shape: tuple[int, int]
     C: Callable = struct.field(pytree_node=False)
     grad_C: Callable = struct.field(pytree_node=False)
+    name: str = struct.field(pytree_node=False)
+    angular_wrap: bool = struct.field(pytree_node=False)
 
     @classmethod
     def create(
@@ -29,6 +31,8 @@ class AutogradConstraint():
             alpha: jnp.ndarray,
             C: Callable,
             rest: jnp.ndarray = None,
+            name: str = None,
+            angular_wrap: bool = False,
         ):
         N = state.x_current.shape[1]
         points = jnp.asarray(points, dtype=jnp.int32)
@@ -39,9 +43,6 @@ class AutogradConstraint():
         scale = (1.0 / counts[idx]).reshape(n, k, 1)
         lambda_shape = (n, 1)
         offset = jnp.zeros((n, k, 1))
-        # rest defaults to the constraint value in the current state (bilateral
-        # constraints hold their build-time value); pass rest explicitly for an
-        # absolute target, e.g. floor contact wants rest=0, not the initial height.
         if rest is None:
             x = state.x_current[:, idx].reshape(-1, n, k, 3)
             rest = C(x)[0]
@@ -57,14 +58,20 @@ class AutogradConstraint():
             rest=rest,
             lambda_shape=lambda_shape,
             grad_C=grad_C,
-            C=C
+            C=C,
+            name=name,
+            angular_wrap=angular_wrap,
         )
 
     def apply(self, state: State, lam: jnp.ndarray, dt: float, **kwargs):
         B = state.x_current.shape[0]
         _alpha = self.alpha[None, :, None]/dt**2
         x, w = state._get_x_w(self.idx)                                             # (B, N, k, 3), (B, N, k, 1)
-        C = self.C(x) - self.rest                                                   # (B, m, 1)
+        C = self.C(x) - self.rest                                                   # (B, m)
+        if self.angular_wrap:
+            # angular residual: take the shortest way round the ±pi seam so an
+            # actuator moves 20deg across the seam instead of 340deg the long way.
+            C = (C + jnp.pi) % (2 * jnp.pi) - jnp.pi
         grad = self.grad_C(x)                                                       # (B, m, k, 3)
         g2 = (grad * grad).sum(-1)[..., None]                                       # (B, m, k, 1)
         w_sum = (w * g2).sum(-2)                                                    # (B, m, 1)
