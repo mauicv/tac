@@ -82,7 +82,7 @@ class AutogradConstraint():
         g2 = (grad * grad).sum(-1)[..., None]                                       # (B, m, k, 1)
         w_sum = (w * g2).sum(-2)                                                    # (B, m, 1)
         residual = - (C[..., None] + _alpha * lam)                                  
-        denom = jnp.clip(w_sum + _alpha, a_min=1e-6)
+        denom = jnp.clip(w_sum + _alpha, min=1e-6)
         d_lambda = residual / denom                                                 # (B, m, 1)
         upd = x + w * grad * d_lambda[:, :, :, None] * self.scale[None, :, :, :]    # (B, m, k, 3)
         state = state.update_x(self.idx, upd)
