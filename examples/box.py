@@ -1,100 +1,96 @@
 from tac.core.state import State
-from tac.constraints.length import Length, VectorizedLength
-from tac.constraints.contact import FloorContact
-from tac.constraints.weld import FacetedWeld
+from tac.constraints.builders import LengthBuilder
+from tac.constraints.hard_floor import HardFloorConstraint
 from tac.core.sim import Simulator
-from tac.viz.renderer import Renderer
 from tac.effects.inertial import Inertia, Gravity
 import random
-import torch
+import jax.numpy as jnp
+from tac.viz.renderer import Renderer
+import time
+import jax
+
+DT = 0.001
+alpha = 0.0
 
 
-DT = 0.004
-alpha = 0.000
+def build_env():
+    points = jnp.array([
+        # Cube
+        [0.0, 0.0, 0.0],  # 0
+        [1.0, 0.0, 0.0],  # 1
+        [1.0, 1.0, 0.0],  # 2
+        [0.0, 1.0, 0.0],  # 3
+        [0.0, 0.0, 1.0],  # 4
+        [1.0, 0.0, 1.0],  # 5
+        [1.0, 1.0, 1.0],  # 6
+        [0.0, 1.0, 1.0],  # 7
+        # # Floor
+        [-5.0,-5.0, -1.0],
+        [5.0, -5.0, -1.0],
+        [-5.0, 5.0, -1.0],
+        [5.0, 5.0, -1.0],
+    ])
+    inv_mass = jnp.array([
+        1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, # Cube
+        0.0, 0.0, 0.0, 0.0                      # Floor
+    ])
+    state = State.create(
+        x_current=points[None],
+        inv_mass=inv_mass[None],
+    )
 
-class Box:
-    def __init__(self):
-        self.state = State(
-            torch.tensor([
-                # Cube
-                [0.0, 0.0, 0.0],
-                [1.0, 0.0, 0.0],
-                [0.0, 1.0, 0.0],
-                [1.0, 1.0, 0.0],
-                [0.0, 0.0, 1.0],
-                [1.0, 0.0, 1.0],
-                [0.0, 1.0, 1.0],
-                [1.0, 1.0, 1.0],
-                # Floor
-                [-5.0,-5.0, -1.0],
-                [5.0, -5.0, -1.0],
-                [-5.0, 5.0, -1.0],
-                [5.0, 5.0, -1.0],
-            ]),
-            inv_mass=torch.tensor([
-                1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, # Cube
-                0.0, 0.0, 0.0, 0.0                      # Floor
-            ]),
-            batch_size=1
-        )
-        cube_weld = FacetedWeld(
-            self.state,
-            [
-                [0, 1, 3, 2],
-                [0, 1, 5, 4],
-                [0, 2, 6, 4],
-                [1, 3, 7, 5],
-                [2, 3, 7, 6],
-                [4, 5, 7, 6]
-            ],
-            alpha
-        )
 
-        floor_weld = FacetedWeld(
-            self.state,
-            [
-                [8, 9, 11, 10],
-            ],
-            alpha
-        )
+    lb = LengthBuilder()
+    for i in range(8):
+        for j in range(i+1, 8):
+            lb.add_constraint([i, j], alpha)
 
-        self.simulator = Simulator(
-            state=self.state,
-            constraints=[
-                *[FloorContact(self.state, i, -1, alpha) for i in range(8)],
-                *cube_weld.get_constraint_set(),
-            ],
-            effects=[
-                Inertia([0, 1, 2, 3, 4, 5, 6, 7]),
-                Gravity([0, 1, 2, 3, 4, 5, 6, 7], [0.0, 0.0, -9.81])
-            ],
-            num_iter=1,
-            dt=DT,
-            constraint_optimisation='Gauss-Seidel'
-            # constraint_optimisation='Jacobi'
-        )
+    hard_floor_constraint = HardFloorConstraint.create(points=[0, 1, 2, 3, 4, 5, 6, 7], floor_z=-1.0)
 
-        self.renderer = Renderer(self.state, [cube_weld, floor_weld])
+    length_constraints = lb.build(state)
 
-    def push_point(self, point: int, force: torch.Tensor):
-        self.state.x_current[:, point] += force
+    simulator = Simulator(
+        constraints=[
+            *length_constraints,
+            hard_floor_constraint,
+        ],
+        effects=[
+            Inertia(
+                jnp.array([0, 1, 2, 3, 4, 5, 6, 7]),
+                friction=jnp.array([0.1])
+            ),
+            Gravity(
+                jnp.array([0, 1, 2, 3, 4, 5, 6, 7]), 
+                jnp.array([0.0, 0.0, -9.81])
+            )
+        ],
+        num_iter=1,
+        dt=DT,
+    )
 
-    def step(self):
-        for _ in range(10):
-            self.state = self.simulator.step(self.state)
-        self.renderer.update(self.state)
+    lines = []
+    faces = [[8, 9, 11, 10], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7], [0, 1, 2, 3], [4, 5, 6, 7]]
 
-    def close(self):
-        self.renderer.close()
+    renderer = Renderer(state, lines, faces, camera_distance=7)
+
+    def scanstep(state, _):
+        state = simulator.step(state)
+        return state, None
+
+    @jax.jit
+    def step_fn(state):
+        state, _ = jax.lax.scan(scanstep, state, None, length=40)
+        return state
+
+    return state, step_fn, renderer
+
 
 
 if __name__ == "__main__":
-    box = Box()
+    state, step_fn, renderer = build_env()
+    state = state.update_x(jnp.array([0]), jnp.array([[-0.001, -0.003, 0.03]]))
 
-    for i in range(8):
-        i = random.randint(0, 7)
-        box.push_point(i, torch.tensor([0.0, 0.001, 0.002]))
+    for _ in range(150):
+        state = step_fn(state)
+        renderer.update(state)
     
-    for _ in range(300):
-        box.step()
-    box.close()

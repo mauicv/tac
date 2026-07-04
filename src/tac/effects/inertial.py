@@ -1,26 +1,44 @@
 from tac.core.state import State
-from typing import List
-import torch
+from flax import struct
+import jax.numpy as jnp
 
 
+@struct.dataclass
 class Inertia:
-    def __init__(self, points: List[int], friction: float = 0.0):
-        self.points = points
-        self.friction = friction
+    points: jnp.ndarray
+    friction: jnp.ndarray
+
+    def __post_init__(self):
+        assert jnp.issubdtype(self.points.dtype, jnp.integer), "points must be int array"
+        assert self.friction.shape == (1, ), "friction must be a scalar"
 
     def apply(self, state: State, dt: float):
-        v = state.x_current[:, self.points] - state.x_previous[:, self.points]
-        new_x = state.x_current[:, self.points] + v - self.friction * v * dt
-        state.x_previous[:, self.points] = state.x_current[:, self.points].clone()  # old current becomes previous
-        state.x_current[:, self.points] = new_x
-        return state
+        idx = self.points
+        x_curr = state.x_current[:, idx]                # (B, len(idx), 3)
+        x_prev = state.x_previous[:, idx]               # (B, len(idx), 3)
+        v = x_curr - x_prev
+        v = v - self.friction * v * dt
+        new_x_current = state.x_current.at[:, idx].add(v)
+        return state.replace(
+            x_previous=state.x_current,
+            x_current=new_x_current
+        )
 
-
+@struct.dataclass
 class Gravity:
-    def __init__(self, points: List[int], gravity: List[float]):
-        self.gravity = gravity
-        self.points = points
+    points: jnp.ndarray
+    gravity: jnp.ndarray
+
+    def __post_init__(self):
+        assert jnp.issubdtype(self.points.dtype, jnp.integer), "points must be int array"
+        assert self.gravity.shape == (3, ), "gravity must be a 3D vector"
 
     def apply(self, state: State, dt: float):
-        state.x_current[:, self.points] += torch.tensor(self.gravity) * dt * dt
-        return state
+        idx = self.points
+        update = self.gravity * dt * dt                 # (3,)
+        new_x_current = state.x_current.at[:, idx].add(update)
+        # NB: gravity only adds to x_current; x_previous is advanced once by
+        # Inertia so the Verlet velocity (x_current - x_previous) accumulates.
+        return state.replace(
+            x_current=new_x_current
+        )

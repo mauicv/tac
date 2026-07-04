@@ -1,123 +1,92 @@
 from tac.core.state import State
-from tac.constraints.length import Length, VectorizedLength
-from tac.constraints.contact import FloorContact
-from tac.constraints.weld import FacetedWeld
-from tac.constraints.joint import Joint, VectorizedJoint
 from tac.core.sim import Simulator
 from tac.viz.renderer import Renderer
 from tac.effects.inertial import Inertia, Gravity
-import random
-import torch
+from tac.constraints.builders import LengthBuilder, JointBuilder
+from tac.constraints.hard_floor import HardFloorConstraint
+import jax.numpy as jnp
+import jax
 import math
+import time
 
-DT=0.01
-ALPHA = 0.0000
+dt    = 0.01
+alpha = 0.00
 
-class JointStructure:
-    def __init__(self):
-        self.state = State(
-            torch.tensor([
-                # Solid 1
-                [0.0, -0.5, 0.0],
-                [0.0, 0.5, 0.0],
+def build_env():
+    state = State.create(
+        x_current=jnp.array([
+            # Solid
+            [0.0, -0.5, 0.0],   # 0
+            [0.0, 0.5, 0.0],    # 1
+            [1.0, 0.0, -0.5],   # 2
+            [1.0, 0.0, 0.5],    # 3
+            [2.0, -0.5, 0.0],   # 4
+            [2.0, 0.5, 0.0],    # 5
 
-                # Solid 1 and 2
-                [1.0, 0.0, -0.5],
-                [1.0, 0.0, 0.5],
-                
-                # Solid 2
-                [2.0, -0.5, 0.0],
-                [2.0, 0.5, 0.0],
+            # Floor
+            [-5.0,-5.0, -1.0],  # 6
+            [5.0, -5.0, -1.0],  # 7
+            [-5.0, 5.0, -1.0],  # 8
+            [5.0, 5.0, -1.0],   # 9
+        ])[None],
+        inv_mass=jnp.array([1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 0.0, 0.0, 0.0, 0.0])[None],
+        control_size=1,
+    )
 
-                # Floor
-                [-5.0,-5.0, -1.0],
-                [5.0, -5.0, -1.0],
-                [-5.0, 5.0, -1.0],
-                [5.0, 5.0, -1.0],
-            ]),
-            inv_mass=torch.tensor([
-                1.0, 1.0, 1.0, 1.0, 1.0, 1.0,       # Solid 1 and 2
-                0.0, 0.0, 0.0, 0.0                  # Floor
+    lines = []
 
-            ]),
-            batch_size=1
-        )
-        solid_1_weld = FacetedWeld(
-            self.state,
-            [
-                [0, 1, 2],
-                [0, 1, 3],
-                [0, 2, 3],
-                [1, 2, 3],
-            ],
-            ALPHA
-        )
+    lb = LengthBuilder()
+    for i in range(4):
+        for j in range(i+1, 4):
+            lb.add_constraint([i, j], alpha)
+            lines.append([i, j])
+        for i in range(2, 6):
+            for j in range(i+1, 6):
+                lb.add_constraint([i, j], alpha)
+                lines.append([i, j])
+    lengths = lb.build(state)
 
-        solid_2_weld = FacetedWeld(
-            self.state,
-            [
-                [2, 3, 4],
-                [2, 3, 5],
-                [2, 4, 5],
-                [3, 4, 5],
-            ],
-            ALPHA
-        )
+    jb = JointBuilder()
+    jb.add_constraint([2, 3, 0, 4], alpha, control=0)
+    jb.add_constraint([2, 3, 1, 5], alpha, control=0)
+    joints = jb.build(state)
 
-        # TODO: note that a single joint leads to drift? Should look into this more.
-        joints = [
-            Joint(self.state, [2, 3], 0, 4, ALPHA),
-            Joint(self.state, [2, 3], 1, 5, ALPHA)
-        ]
+    hard_floor_constraint = HardFloorConstraint.create(points=[0, 1, 2, 3, 4, 5], floor_z=-1.0)
 
-        floor_weld = FacetedWeld(
-            self.state,
-            [
-                torch.tensor([0, 1, 3, 2]) + 6,
-            ],
-            1.0
-        )
+    simulator = Simulator(
+        constraints=[
+            *joints,
+            *lengths,
+            hard_floor_constraint
+        ],
+        effects=[
+            Inertia(jnp.arange(6), jnp.array([0.0])),
+            Gravity(jnp.arange(6), jnp.array([0.0, 0.0, -9.81]))
+        ],
+        num_iter=1,
+        dt=dt,
+    )
+        
+    faces = [[6, 7, 9, 8]]
 
-        contacts = [FloorContact(self.state, i, -1, 1.0) for i in range(6)]
-        vectorized_lengths = VectorizedLength.from_constraints(
-            self.state,
-            solid_1_weld.get_constraint_set() + solid_2_weld.get_constraint_set(),
-            ALPHA
-        )
-        simulator = Simulator(
-            state=self.state,
-            constraints=[
-                vectorized_lengths,
-                *joints,
-                *contacts
-            ],
-            effects=[
-                Inertia([0, 1, 2, 3, 4, 5]),
-                Gravity([0, 1, 2, 3, 4, 5], [0.0, 0.0, -9.81])
-            ],
-            num_iter=3,
-            dt=DT,
-            constraint_optimisation='None'
-        )
-        self.simulator = simulator
-        self.renderer = Renderer(self.state, [solid_1_weld, solid_2_weld, floor_weld])
+    renderer = Renderer(state, lines, faces)
 
-    def push_point(self, point: int, force: torch.Tensor):
-        self.state.x_current[:, point] += force
+    @jax.jit
+    def step_fn(state):
+        for _ in range(1):
+            state = simulator.step(state)
+        return state
 
-    def step(self):
-        for _ in range(10):
-            self.state = self.simulator.step(self.state)
-        self.renderer.update(self.state)
-
-    def close(self):
-        self.renderer.close()
+    return state, step_fn, renderer
 
 if __name__ == "__main__":
-    joint = JointStructure()
-    for _ in range(2):
-        joint.push_point(random.randint(0, 5), torch.tensor([0.0, 0.01, -0.05]))
+    state, step_fn, renderer = build_env()
+    state = state.update_x(jnp.array([0]), jnp.array([[0.001, -0.5 + 0.001, 0.0]]))
 
-    for t in range(1000):
-        joint.step()
-    joint.close()
+    i = 0
+    for _ in range(1000):
+        for _ in range(10):
+            state = step_fn(state)
+        state = state.update_control(jnp.array([[math.sin(i / 100)]]))
+        i += 1
+        renderer.update(state)
