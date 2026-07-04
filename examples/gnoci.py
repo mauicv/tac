@@ -76,6 +76,7 @@ def build_env():
     state = State.create(
         x_current=points,
         inv_mass=inv_mass,
+        control_size=10,
     )
 
     pb = PlanarBuilder()
@@ -160,19 +161,26 @@ def build_env():
         camera_distance=3,
     )
 
+    def scanstep(state, _):
+        state = simulator.step(state)
+        return state, None
+
     @jax.jit
     def step_fn(state):
-        for _ in range(10):
-            state = simulator.step(state)
+        state, _ = jax.lax.scan(scanstep, state, None, length=10)
         return state
 
     return state, step_fn, renderer
 
 if __name__ == "__main__":
+    start = time.perf_counter()
     state, step_fn, renderer = build_env()
-    left_yoke = [0.0, -0.01, hip_height+0.1]
+    left_yoke = [0.0, -0.007, hip_height+0.1]
     state = state.update_x(jnp.array([22]), jnp.array([left_yoke]))
     state = step_fn(state)
+    end = time.perf_counter()
+    print(f"Startup time taken: {end - start}")
+
     logs = []
     for i in range(1000):
         start = time.perf_counter()

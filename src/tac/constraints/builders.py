@@ -15,11 +15,13 @@ class ConstraintBuilder:
             'alphas': [],
             'covered_points': set(),
             'name': self.name,
+            'controls': [],
         }]
 
     def add_constraint(self,
             points: List[int],
-            alpha: float
+            alpha: float,
+            control: int = -1,
         ):
         constraint_points = set(points)
         options = []
@@ -30,6 +32,7 @@ class ConstraintBuilder:
             self.constraint_sets.append({
                 'points': [points],
                 'alphas': [alpha],
+                'controls': [control],
                 'covered_points': constraint_points,
                 'name': self.name,
             })
@@ -37,13 +40,23 @@ class ConstraintBuilder:
             ind = options[0]
             self.constraint_sets[ind]['points'].append(points)
             self.constraint_sets[ind]['alphas'].append(alpha)
+            self.constraint_sets[ind]['controls'].append(control)
             self.constraint_sets[ind]['covered_points'].update(constraint_points)
         return self
 
     def build(self, state: State) -> List[AutogradConstraint]:
         constraints = []
         for cs in self.constraint_sets:
-            constraint = AutogradConstraint.create(state, cs['points'], cs['alphas'], self.C, rest=self.rest, name=cs['name'], angular_wrap=self.angular_wrap)
+            constraint = AutogradConstraint.create(
+                state,
+                cs['points'],
+                cs['alphas'],
+                self.C,
+                rest=self.rest,
+                name=cs['name'],
+                angular_wrap=self.angular_wrap,
+                control=cs['controls']
+            )
             constraints.append(constraint)
         return constraints
 

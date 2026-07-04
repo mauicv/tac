@@ -6,15 +6,12 @@ from tac.core.state import State
 from typing import Callable
 
 
-# from tac.util.log_recorder import recorder
-
-
 @struct.dataclass
 class AutogradConstraint():
     idx: jnp.ndarray
     alpha: jnp.ndarray
     scale: jnp.ndarray
-    offset: jnp.ndarray
+    control: jnp.ndarray
     rest: jnp.ndarray
     
     lambda_shape: tuple[int, int]
@@ -33,6 +30,7 @@ class AutogradConstraint():
             rest: jnp.ndarray = None,
             name: str = None,
             angular_wrap: bool = False,
+            control: jnp.ndarray = None,
         ):
         N = state.x_current.shape[1]
         points = jnp.asarray(points, dtype=jnp.int32)
@@ -42,7 +40,6 @@ class AutogradConstraint():
         counts = jnp.bincount(idx, length=N)
         scale = (1.0 / counts[idx]).reshape(n, k, 1)
         lambda_shape = (n, 1)
-        offset = jnp.zeros((n, k, 1))
         if rest is None:
             x = state.x_current[:, idx].reshape(-1, n, k, 3)
             rest = C(x)[0]
@@ -50,11 +47,18 @@ class AutogradConstraint():
             rest = jnp.asarray(rest, dtype=jnp.float32)
         grad_C = jax.grad(lambda x: C(x).sum())
 
+        # control: per-constraint index into state.control; -1 means uncontrolled
+        # (masked out at apply time). Defaults to all -1.
+        if control is None:
+            control = -jnp.ones(n, dtype=jnp.int32)
+        else:
+            control = jnp.asarray(control, dtype=jnp.int32)
+
         return cls(
             idx=points,
             alpha=alpha,
             scale=scale,
-            offset=offset,
+            control=control,
             rest=rest,
             lambda_shape=lambda_shape,
             grad_C=grad_C,
@@ -68,6 +72,13 @@ class AutogradConstraint():
         _alpha = self.alpha[None, :, None]/dt**2
         x, w = state._get_x_w(self.idx)                                             # (B, N, k, 3), (B, N, k, 1)
         C = self.C(x) - self.rest                                                   # (B, m)
+        # per-constraint control offset gathered per batch element from
+        # state.control; sentinel -1 (uncontrolled) is clipped in-bounds then
+        # masked to zero.
+        idx = jnp.clip(self.control, 0)                                             # (m,)
+        offset = state.control[:, idx]                                              # (B, m)
+        offset = jnp.where(self.control >= 0, offset, 0.0)                          # (B, m)
+        C = C + offset                                                              # (B, m)
         if self.angular_wrap:
             # angular residual: take the shortest way round the ±pi seam so an
             # actuator moves 20deg across the seam instead of 340deg the long way.
