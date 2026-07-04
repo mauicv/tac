@@ -9,6 +9,7 @@ import jax.numpy as jnp
 import time
 import jax
 import numpy as np
+import math
 
 
 foot_stance_length = 0.2
@@ -87,26 +88,26 @@ def build_env():
     planars = pb.build(state)
 
     jb = JointBuilder()
-    jb.add_constraint([2, 8, 0, 6], JOINT_ALPHA)
-    jb.add_constraint([2, 8, 27, 12], JOINT_ALPHA)
-    jb.add_constraint([5, 9, 3, 7], JOINT_ALPHA)
-    jb.add_constraint([5, 9, 29, 13], JOINT_ALPHA)
-    jb.add_constraint([6, 12, 2, 10], JOINT_ALPHA)
-    jb.add_constraint([6, 12, 8, 16], JOINT_ALPHA)
-    jb.add_constraint([7, 13, 5, 11], JOINT_ALPHA)
-    jb.add_constraint([7, 13, 9, 17], JOINT_ALPHA)
-    jb.add_constraint([10, 16, 6, 14], JOINT_ALPHA)
-    jb.add_constraint([10, 16, 12, 20], JOINT_ALPHA)
-    jb.add_constraint([11, 17, 7, 15], JOINT_ALPHA)
-    jb.add_constraint([11, 17, 13, 21], JOINT_ALPHA)
-    jb.add_constraint([14, 20, 10, 18], JOINT_ALPHA)
-    jb.add_constraint([14, 20, 16, 23], JOINT_ALPHA)
-    jb.add_constraint([15, 21, 11, 19], JOINT_ALPHA)
-    jb.add_constraint([15, 21, 17, 24], JOINT_ALPHA)
-    jb.add_constraint([18, 23, 14, 22], JOINT_ALPHA)
-    jb.add_constraint([18, 23, 20, 31], JOINT_ALPHA)
-    jb.add_constraint([19, 24, 15, 22], JOINT_ALPHA)
-    jb.add_constraint([19, 24, 21, 31], JOINT_ALPHA)
+    jb.add_constraint([2, 8, 0, 6], JOINT_ALPHA, control=0)
+    jb.add_constraint([2, 8, 27, 12], JOINT_ALPHA, control=0)
+    jb.add_constraint([5, 9, 3, 7], JOINT_ALPHA, control=1)
+    jb.add_constraint([5, 9, 29, 13], JOINT_ALPHA, control=1)
+    jb.add_constraint([6, 12, 2, 10], JOINT_ALPHA, control=2)
+    jb.add_constraint([6, 12, 8, 16], JOINT_ALPHA, control=2)
+    jb.add_constraint([7, 13, 5, 11], JOINT_ALPHA, control=3)
+    jb.add_constraint([7, 13, 9, 17], JOINT_ALPHA, control=3)
+    jb.add_constraint([10, 16, 6, 14], JOINT_ALPHA, control=4)
+    jb.add_constraint([10, 16, 12, 20], JOINT_ALPHA, control=4)
+    jb.add_constraint([11, 17, 7, 15], JOINT_ALPHA, control=5)
+    jb.add_constraint([11, 17, 13, 21], JOINT_ALPHA, control=5)
+    jb.add_constraint([14, 20, 10, 18], JOINT_ALPHA, control=6)
+    jb.add_constraint([14, 20, 16, 23], JOINT_ALPHA, control=6)
+    jb.add_constraint([15, 21, 11, 19], JOINT_ALPHA, control=7)
+    jb.add_constraint([15, 21, 17, 24], JOINT_ALPHA, control=7)
+    jb.add_constraint([18, 23, 14, 22], JOINT_ALPHA, control=8)
+    jb.add_constraint([18, 23, 20, 31], JOINT_ALPHA, control=8)
+    jb.add_constraint([19, 24, 15, 22], JOINT_ALPHA, control=9)
+    jb.add_constraint([19, 24, 21, 31], JOINT_ALPHA, control=9)
     joints = jb.build(state)
 
     line_cells = [
@@ -175,14 +176,20 @@ def build_env():
 if __name__ == "__main__":
     start = time.perf_counter()
     state, step_fn, renderer = build_env()
-    left_yoke = [0.0, -0.007, hip_height+0.1]
-    state = state.update_x(jnp.array([22]), jnp.array([left_yoke]))
     state = step_fn(state)
     end = time.perf_counter()
     print(f"Startup time taken: {end - start}")
 
     logs = []
     for i in range(1000):
+
+        control = jnp.array([[
+            math.sin(i / 500), -math.sin(i / 500), -math.sin(i / 500), math.sin(i / 500),
+            -math.sin(i / 500), math.sin(i / 500), 0.0, 0.0, 0.0, 0.0
+        ]])
+        control = jnp.clip(control, -0.7, 0.7)
+        state = state.update_control(control)
+
         start = time.perf_counter()
         state = step_fn(state)
         end = time.perf_counter()
