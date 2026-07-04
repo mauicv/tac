@@ -47,8 +47,6 @@ class AutogradConstraint():
             rest = jnp.asarray(rest, dtype=jnp.float32)
         grad_C = jax.grad(lambda x: C(x).sum())
 
-        # control: per-constraint index into state.control; -1 means uncontrolled
-        # (masked out at apply time). Defaults to all -1.
         if control is None:
             control = -jnp.ones(n, dtype=jnp.int32)
         else:
@@ -72,9 +70,6 @@ class AutogradConstraint():
         _alpha = self.alpha[None, :, None]/dt**2
         x, w = state._get_x_w(self.idx)                                             # (B, N, k, 3), (B, N, k, 1)
         C = self.C(x) - self.rest                                                   # (B, m)
-        # per-constraint control offset gathered per batch element from
-        # state.control; sentinel -1 (uncontrolled) is clipped in-bounds then
-        # masked to zero.
         idx = jnp.clip(self.control, 0)                                             # (m,)
         offset = state.control[:, idx]                                              # (B, m)
         offset = jnp.where(self.control >= 0, offset, 0.0)                          # (B, m)

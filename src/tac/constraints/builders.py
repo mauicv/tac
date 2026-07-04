@@ -122,6 +122,6 @@ class PlanarBuilder(ConstraintBuilder):
             # of the best-fit plane; 0 iff coplanar.
             centred = points - points.mean(-2, keepdims=True)              # (B, n, k, 3)
             cov = jnp.einsum("...ki,...kj->...ij", centred, centred)       # (B, n, 3, 3)
-            return jnp.linalg.eigvalsh(cov)[..., 0]                         # (B, n)
+            return jnp.linalg.eigvalsh(cov)[..., 0]                        # (B, n)
 
         super().__init__(C, name='planar')

@@ -9,7 +9,7 @@ from tac.viz.renderer import Renderer
 import time
 import jax
 
-DT = 0.04
+DT = 0.001
 alpha = 0.0
 
 
@@ -68,15 +68,18 @@ def build_env():
         dt=DT,
     )
 
-    lines = [[0, 1], [1, 2], [2, 3], [3, 0], [4, 5], [5, 6], [6, 7], [7, 4], [0, 4], [1, 5], [2, 6], [3, 7]]
-    faces = [[8, 9, 11, 10]]
+    lines = []
+    faces = [[8, 9, 11, 10], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7], [0, 1, 2, 3], [4, 5, 6, 7]]
 
-    renderer = Renderer(state, lines, faces)
+    renderer = Renderer(state, lines, faces, camera_distance=7)
+
+    def scanstep(state, _):
+        state = simulator.step(state)
+        return state, None
 
     @jax.jit
     def step_fn(state):
-        for _ in range(2):
-            state = simulator.step(state)
+        state, _ = jax.lax.scan(scanstep, state, None, length=40)
         return state
 
     return state, step_fn, renderer
@@ -85,9 +88,9 @@ def build_env():
 
 if __name__ == "__main__":
     state, step_fn, renderer = build_env()
-    state = state.update_x(jnp.array([0]), jnp.array([[0.01, 0.03, 0.1]]))
+    state = state.update_x(jnp.array([0]), jnp.array([[-0.001, -0.003, 0.03]]))
 
-    for _ in range(1000):
+    for _ in range(150):
         state = step_fn(state)
         renderer.update(state)
     
