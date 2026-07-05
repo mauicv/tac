@@ -67,9 +67,9 @@ def build_env():
         dt=dt,
     )
         
-    faces = [[6, 7, 9, 8]]
+    faces = [[6, 7, 9, 8], [0, 1, 2], [0, 1, 3], [0, 2, 3], [1, 2, 3],  [2, 3, 4], [2, 3, 5], [3, 4, 5], [2, 4, 5]]
 
-    renderer = Renderer(state, lines, faces)
+    renderer = Renderer(state, [], faces)
 
     @jax.jit
     def step_fn(state):

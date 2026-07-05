@@ -180,14 +180,18 @@ if __name__ == "__main__":
     end = time.perf_counter()
     print(f"Startup time taken: {end - start}")
 
-    logs = []
-    for i in range(1000):
+    rand_keys = jax.random.split(jax.random.PRNGKey(0), 1000)
 
-        control = jnp.array([[
-            math.sin(i / 500), -math.sin(i / 500), -math.sin(i / 500), math.sin(i / 500),
-            -math.sin(i / 500), math.sin(i / 500), 0.0, 0.0, 0.0, 0.0
-        ]])
-        control = jnp.clip(control, -0.7, 0.7)
+    logs = []
+    control = jnp.zeros((1, 10,))
+    for i in range(1000):
+        random_control = jax.random.uniform(rand_keys[i], shape=(1, 10), minval=-0.02, maxval=0.02)
+        control = control + random_control
+        # control = jnp.array([[
+        #     math.sin(i / 500), -math.sin(i / 500), -math.sin(i / 500), math.sin(i / 500),
+        #     -math.sin(i / 500), math.sin(i / 500), 0.0, 0.0, 0.0, 0.0
+        # ]])
+        
         state = state.update_control(control)
 
         start = time.perf_counter()
