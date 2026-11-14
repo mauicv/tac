@@ -7,10 +7,12 @@ name = "tac"
 version = "0.0.1"
 description = "Minimal differentiable XPBD physics engine / state estimator (gnoci)"
 requires-python = ">=3.10"
-dependencies = ["jax", "flax"]
+dependencies = [
+    "jax",
+    "flax",
+]
 
 [project.optional-dependencies]
-dev = ["pytest"]
 viz = ["pyvista", "numpy<2"]
 
 [tool.setuptools.packages.find]
@@ -18,3 +20,9 @@ where = ["src"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[dependency-groups]
+dev = [
+    "mujoco>=3.17.0",
+    "pytest>=9.2.0",
+]

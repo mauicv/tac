@@ -30,7 +30,8 @@ class Renderer:
             state: State,
             lines: List[Tuple[int, int]],
             faces: List[List[int]],
-            camera_distance: float = 5.0
+            camera_distance: float = 5.0,
+            opacity: float = 1.0,
         ):
         self.plotter = pv.Plotter()
         points = state_2_points(state)
@@ -47,6 +48,7 @@ class Renderer:
             line_width=5,
             show_edges=True,
             color='gray',
+            opacity=opacity,
             # style='wireframe'
         )
 
