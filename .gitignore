@@ -14,9 +14,13 @@ __pycache__/
 *.pyz
 
 venv/
+.venv
 .vscode/
 .idea/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
 tac.egg-info/
+loading-todo.md
+
+build
